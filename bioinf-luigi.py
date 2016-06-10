@@ -14,13 +14,18 @@ genome = "reference/gp140.fa"
 
 
 def run_cmd(cmd):
+    """
+    Executes the given command in a system subprocess
+    """
     proc = subprocess.Popen(cmd, shell=False, universal_newlines=True, stdout=subprocess.PIPE)
     (output, error) = proc.communicate()
 
     return output
 
 class Curl_Download(luigi.Task):
-
+    """
+    Downloads a remote url to a local file path using cURL
+    """
     url = luigi.Parameter()
     file = luigi.Parameter()
 
@@ -28,39 +33,49 @@ class Curl_Download(luigi.Task):
         return luigi.LocalTarget(self.file)
 
     def run(self):
-        tmp = run_cmd(["curl", "-s", self.url])
-
-        with self.output().open('w') as file:
-            file.write(tmp)
+        tmp = run_cmd(["curl", "-so", self.file, self.url])
 
         print "====== cURL Downloading file ======"
 
-class Download_PairedEnd_Fastq(luigi.Task):
-
+class PairedEnd_Fastq(luigi.Task):
+    """
+    Fetches the two paired-end FASTQ files for a given sample ID
+    """
     sample = luigi.Parameter()
 
-    def fetch_paths(self, end):
-        url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz".format(sample=self.sample)
-        file = "fastq/{sample}_{end}.fastq.gz".format(sample=self.sample, end=end)
-
-        return (url, file)
-
     def requires(self):
-        (url1, file1) = self.fetch_paths(1)
-        (url2, file2) = self.fetch_paths(2)
+        # download the gzipped fastq files from the EBI ftp server
+        url1 = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz".format(sample=self.sample)
+        url2 = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz".format(sample=self.sample)
 
-        return [Curl_Download(url1, file1),Curl_Download(url2, file2)]
+        return [Curl_Download(url1, "fastq/%s_1.fastq.gz" % self.sample),
+                Curl_Download(url2, "fastq/%s_2.fastq.gz" % self.sample)]
 
     def output(self):
-        (url1, file1) = self.fetch_paths(1)
-        (url2, file2) = self.fetch_paths(2)
-
-        return [luigi.LocalTarget(file1), luigi.LocalTarget(file2)]
+        return [luigi.LocalTarget("fastq/%s_1.fastq" % self.sample),
+                luigi.LocalTarget("fastq/%s_2.fastq" % self.sample)]
 
     def run(self):
-        # nothing to do here because the dependencies are all that need resolving
+        # unzip the files
+        (file1, file2) = self.output()
+        run_cmd(["gunzip", "-k", file1.path, file2.path])
 
-        print "====== Downloading Paired-end FASTQ ======"
+        print "====== Downloaded Paired-end FASTQ ======"
+
+class Bwa_Index(luigi.Task):
+    """
+    Builds the BWA index for the given fasta file
+    """
+    sample = luigi.Parameter()
+
+    def requires(self):
+        return
+
+    def output(self):
+        return luigi.LocalTarget("fasta/%s.fa" % self.genome),
+
+    def run(self):
+        return
 
 class Bwa_Mem(luigi.Task):
 
@@ -68,10 +83,9 @@ class Bwa_Mem(luigi.Task):
     # fastq_path = luigi.Parameter()
 
     sample = luigi.Parameter()
-    #genome = luigi.Parameter()
 
     def requires(self):
-       return Download_PairedEnd_Fastq(self.sample)
+       return PairedEnd_Fastq(self.sample)
 
     def output(self):
         return luigi.LocalTarget("sam/%s.sam" % self.sample)
@@ -80,8 +94,8 @@ class Bwa_Mem(luigi.Task):
         tmp = run_cmd(["bwa",
                      "mem",
                      genome,
-                     "fastq/"+self.sample+"_1.fastq",
-                     "fastq/"+self.sample+"_1.fastq"])
+                     "fastq/%s_1.fastq" % self.sample,
+                     "fastq/%s_2.fastq" % self.sample])
         with self.output().open('w') as sam_out:
             sam_out.write(tmp)
         print "====== Running BWA ======"
