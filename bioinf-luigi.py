@@ -10,13 +10,14 @@ import random
 
 sample_list = ["GP140-10A_S19","GP140-10B_S20","GP140-11A_S21","GP140-11B_S22","GP140-1A_S1","GP140-1B_S2","GP140-2A_S3","GP140-2B_S4","GP140-3A_S5","GP140-3B_S6","GP140-4A_S7","GP140-4B_S8","GP140-5A_S9","GP140-5B_S10","GP140-6A_S11","GP140-6B_S12","GP140-7A_S13","GP140-7B_S14","GP140-8A_S15","GP140-8B_S16","GP140-9A_S17","GP140-9B_S18"]
 
-genome = "reference/gp140.fa"
-
+# TODO tidy these up
+genome = "Oryctolagus_cuniculus.OryCun2.0.dna.toplevel"
 
 def run_cmd(cmd):
     """
     Executes the given command in a system subprocess
     """
+    print cmd
     proc = subprocess.Popen(cmd, shell=False, universal_newlines=True, stdout=subprocess.PIPE)
     (output, error) = proc.communicate()
 
@@ -62,43 +63,66 @@ class PairedEnd_Fastq(luigi.Task):
 
         print "====== Downloaded Paired-end FASTQ ======"
 
-class Bwa_Index(luigi.Task):
+class Genome_Fasta(luigi.Task):
     """
-    Builds the BWA index for the given fasta file
+    Fetches the reference genome
     """
-    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+    # url = luigi.Parameter()
 
     def requires(self):
-        return
+        # download the gzipped fasta file form the reference genome
+        # TODO fix this
+        url = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
+        return Curl_Download(url, "fasta/%s.fa.gz" % self.genome)
 
     def output(self):
-        return luigi.LocalTarget("fasta/%s.fa" % self.genome),
+        return luigi.LocalTarget("fasta/%s.fa" % self.genome)
 
     def run(self):
-        return
+        # unzip the file
+        run_cmd(["gunzip", "-k", self.output().path])
+
+        print "====== Downloaded genome FASTA ======"
+
+class Bwa_Index(luigi.Task):
+    """
+    Builds the BWA index for the reference genome
+    """
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return Genome_Fasta(self.genome)
+
+    def output(self):
+        files = []
+        for ext in ['amb', 'ann', 'bwt', 'fai', 'pac', 'sa']:
+            files.append(luigi.LocalTarget("fasta/{genome}.fa.{ext}".format(genome=self.genome, ext=ext)))
+        return files
+
+    def run(self):
+        run_cmd(["bwa", "index", "-a", "bwtsw", "fasta/%s.fa" % self.genome])
+        print "====== Built the BWA index ======"
 
 class Bwa_Mem(luigi.Task):
-
-    # Ideally we have to show this but for now I am gonna fake it by creating a list of sample IDs
-    # fastq_path = luigi.Parameter()
-
+    """
+    Align the fastq files to the reference genome
+    """
     sample = luigi.Parameter()
 
     def requires(self):
-       return PairedEnd_Fastq(self.sample)
+       return [PairedEnd_Fastq(self.sample), Bwa_Index("OryCun2.0")]
 
     def output(self):
         return luigi.LocalTarget("sam/%s.sam" % self.sample)
 
     def run(self):
-        tmp = run_cmd(["bwa",
-                     "mem",
-                     genome,
-                     "fastq/%s_1.fastq" % self.sample,
-                     "fastq/%s_2.fastq" % self.sample])
+        tmp = run_cmd(["bwa", "mem", genome, "fastq/%s_1.fastq" % self.sample, "fastq/%s_2.fastq" % self.sample])
+
         with self.output().open('w') as sam_out:
             sam_out.write(tmp)
-        print "====== Running BWA ======"
+
+        print "====== Aligned the FASTQ using BWA ======"
 
 
 class Convert_Sam_Bam(luigi.Task):
@@ -135,8 +159,6 @@ class Sort_Bam(luigi.Task):
                        "bam/"+self.sample+".sorted"])
 
         print "===== Sorting Bam ======="
-
-
 
 class Index_Bam(luigi.Task):
 
