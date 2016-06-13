@@ -7,9 +7,12 @@ import multiprocessing
 
 # downloaded from http://coderscrowd.com/app/public/codes/view/229
 
-# the URL for the reference genome
-genome = "OryCun2.0"
-genome_url = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
+# the reference genome
+GENOME = "OryCun2.0"
+GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
+
+# the list of sample codes
+SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320','SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
 
 # the URLs for the paried end fastq files
 pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
@@ -93,9 +96,9 @@ class Genome_Fasta(luigi.Task):
     # url = luigi.Parameter()
 
     def requires(self):
-        global genome_url
+        global GENOME_URL
         # download the gzipped fasta file of the reference genome
-        return Curl_Download(genome_url, "fasta/"+self.genome+".fa.gz")
+        return Curl_Download(GENOME_URL, "fasta/"+self.genome+".fa.gz")
 
     def output(self):
         return luigi.LocalTarget("fasta/"+self.genome+".fa")
@@ -108,7 +111,7 @@ class Genome_Fasta(luigi.Task):
 
 class Samtools_Fasta_Index(luigi.Task):
     """
-    Builds the samtools fasta index for the reference genome
+    Builds the samtools fasta index for the reference genome, needed for downstream CRAM files
     """
     genome = luigi.Parameter()
 
@@ -120,14 +123,14 @@ class Samtools_Fasta_Index(luigi.Task):
 
     def run(self):
         run_cmd(["samtools",
-                 "faidx",
-                 "fasta/"+self.genome+".fa"])
+                 "faidx",                     # index needed for CRAM files
+                 "fasta/"+self.genome+".fa"]) # input file
 
         print "====== Built the samtools FASTA index ======"
 
 class Bwa_Index(luigi.Task):
     """
-    Builds the BWA index for the reference genome
+    Builds the BWA index for the reference genome, needed for performing alignments
     """
     genome = luigi.Parameter()
 
@@ -140,9 +143,9 @@ class Bwa_Index(luigi.Task):
 
     def run(self):
         run_cmd(["bwa",
-                 "index",
-                 "-a", "bwtsw",
-                 "fasta/"+self.genome+".fa"])
+                 "index",                     # index needed for bwa alignment
+                 "-a", "bwtsw",               # algorithm suitable for mammals
+                 "fasta/"+self.genome+".fa"]) # input file
 
         print "====== Built the BWA index ======"
 
@@ -286,12 +289,32 @@ class Convert_Bam_Cram(luigi.Task):
 
         print "===== Converted BAM file to CRAM ======"
 
+class Index_Cram(luigi.Task):
+    """
+    Create an index for the CRAM file for fast random access
+    """
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget("cram/" + self.sample + ".cram.crai")
+
+    def requires(self):
+        return Convert_Bam_Cram(self.sample, self.genome)
+
+    def run(self):
+        tmp = run_cmd(["samtools",
+                       "index",
+                       "cram/" + self.sample + ".cram"])
+
+        print "==== Indexing CRAM ===="
+
 class Samtools_MPileup(luigi.Task):
     sample = luigi.Parameter()
     genome = luigi.Parameter()
 
     def requires(self):
-        return Convert_Bam_Cram(self.sample, self.genome)
+        return Index_Cram(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("pileup/"+self.sample+".pileup")
@@ -299,34 +322,18 @@ class Samtools_MPileup(luigi.Task):
     def run(self):
         pileup = run_cmd(["samtools",
                           "mpileup",                             # output a pileup file
-                          # "-o", "pileup/"+self.sample+".pileup", # output location
+                          "-o", "pileup/"+self.sample+".pileup", # output location
                           "-f", "fasta/"+self.genome+".fa",      # reference genome
                           "cram/"+self.sample+".cram"])          # input CRAM file
 
+        # TODO can't use output pipe because it fails with error "IOError: [Errno 22] Invalid argument"
+
         # save the pileup file
-        with self.output().open('w') as fout:
-            fout.write(pileup)
+        # with self.output().open('w') as fout:
+        #     fout.write(pileup)
 
         print "===== Converted CRAM file to pileup ======="
 
-# class Index_Bam(luigi.Task):
-#
-#     sample = luigi.Parameter()
-#
-#     def output(self):
-#         print "Indexing ... Done"
-#
-#     def requires(self):
-#         return Sort_Bam(self.sample)
-#
-#     def run(self):
-#         tmp = run_cmd(["samtools",
-#                        "index",
-#                        "bam/"+self.sample+".sorted.bam"])
-#
-#         print "==== Indexing Bam ===="
-#
-#
 # class Call_Variant(luigi.Task):
 #
 #     sample = luigi.Parameter()
@@ -373,21 +380,11 @@ class Samtools_MPileup(luigi.Task):
 #             vcf_file.write(tmp)
 #
 #         print "===== Creating VCF ======="
-#
-#
-# class Custom_Genome_Pipeline(luigi.Task):
-#
-#     def requires(self):
-#         return [Convert_Bcf_Vcf(sample) for sample in sample_list]
-#
-#     def output(self):
-#         return luigi.LocalTarget("log.txt")
-#
-#     def run(self):
-#         print "running..."
-#         #for sample in sample_list:
-#             #print sample+"\n"
-#             #return Convert_Bcf_Vcf(sample)
+
+class Custom_Genome_Pipeline(luigi.Task):
+
+    def requires(self):
+        return [Samtools_MPileup(sample, GENOME) for sample in sample_list]
 
 
 if __name__=='__main__':
