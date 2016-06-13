@@ -135,10 +135,8 @@ class Bwa_Index(luigi.Task):
         return Genome_Fasta(self.genome)
 
     def output(self):
-        files = []
-        for ext in ['amb', 'ann', 'bwt', 'pac', 'sa']:
-            files.append(luigi.LocalTarget("fasta/"+self.genome+".fa."+ext))
-        return files
+        extensions = ['amb', 'ann', 'bwt', 'pac', 'sa']
+        return [luigi.LocalTarget("fasta/"+self.genome+".fa."+ext) for ext in extensions]
 
     def run(self):
         run_cmd(["bwa",
