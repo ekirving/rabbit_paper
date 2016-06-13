@@ -30,7 +30,7 @@ def run_cmd(cmd):
     # run the command
     proc = subprocess.Popen(cmd,
                             shell=False,
-                            universal_newlines=True,
+                            # universal_newlines=True,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
 
