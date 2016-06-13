@@ -19,14 +19,26 @@ def run_cmd(cmd):
     """
     Executes the given command in a system subprocess
     """
+    # TODO remove when done debugging
     print cmd
-    proc = subprocess.Popen(cmd, shell=False, universal_newlines=True, stdout=subprocess.PIPE)
+
+    # subprocess only accepts strings
+    cmd = [str(args) for args in cmd]
+
+    # run the command
+    proc = subprocess.Popen(cmd,
+                            shell=False,
+                            universal_newlines=True,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+
+    # fetch the output and error
     (stdout, stderr) = proc.communicate()
 
     # TODO remove when done debugging
     print vars(proc)
 
-    if stderr:
+    if proc.returncode:
         print stderr
         exit()
 
@@ -91,24 +103,24 @@ class Genome_Fasta(luigi.Task):
 
         print "====== Downloaded genome FASTA ======"
 
-# class Samtools_Fasta_Index(luigi.Task):
-#     """
-#     Builds the samtools fasta index for the reference genome
-#     """
-#     genome = luigi.Parameter()
-#
-#     def requires(self):
-#         return Genome_Fasta(self.genome)
-#
-#     def output(self):
-#         return luigi.LocalTarget("fasta/"+self.sample+".fa")
-#
-#     def run(self):
-#         run_cmd(["samtools",
-#                  "faidx",
-#                  "fasta/"+self.sample+".fa"])
-#
-#         print "====== Built the samtools FASTA index ======"
+class Samtools_Fasta_Index(luigi.Task):
+    """
+    Builds the samtools fasta index for the reference genome
+    """
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return Genome_Fasta(self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("fasta/"+self.genome+".fa")
+
+    def run(self):
+        run_cmd(["samtools",
+                 "faidx",
+                 "fasta/"+self.genome+".fa"])
+
+        print "====== Built the samtools FASTA index ======"
 
 class Bwa_Index(luigi.Task):
     """
@@ -141,7 +153,8 @@ class Bwa_Mem(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return [PairedEnd_Fastq(self.sample), Bwa_Index(self.genome)]
+        return [PairedEnd_Fastq(self.sample),
+                Bwa_Index(self.genome)]
 
     def output(self):
         return luigi.LocalTarget("sam/"+self.sample+".sam")
@@ -151,7 +164,7 @@ class Bwa_Mem(luigi.Task):
         cores = multiprocessing.cpu_count() # TODO should this be limited?
 
         # TODO add the sample name to the readgroup header
-        readgroup= "@RG\tID:{sample}\tSM:{sample}\t".format(sample=self.sample)
+        readgroup= "@RG\\tID:{sample}\\tSM:{sample}".format(sample=self.sample)
 
         # perform the alignment
         sam = run_cmd(["bwa",
@@ -187,19 +200,15 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
         cores = multiprocessing.cpu_count()  # TODO should this be limited?
 
         # perform the SAM -> BAM conversion and sorting
-        bam = run_cmd(["samtools",
-                       "sort",                          # sort the reads
-                       "-l", self.compression,          # level of compression
-                       "-@", cores,                     # number of cores
-                       "-O", "bam",                     # output a BAM file
-                       "-o", "bam/"+self.sample+".bam", # output location
-                       "sam/"+self.sample+"s.sam"])     # input SAM file
+        run_cmd(["samtools",
+                 "sort",                          # sort the reads
+                 "-l", self.compression,          # level of compression
+                 "-@", cores,                     # number of cores
+                 "-O", "bam",                     # output a BAM file
+                 "-o", "bam/"+self.sample+".bam", # output location
+                 "sam/"+self.sample+".sam"])      # input SAM file
 
-        # save the BAM file
-        with self.output().open('w') as bam_out:
-            bam_out.write(bam)
-
-        print "===== Converting Sam file to Bam file ======"
+        print "===== Converted SAM file to BAM ======"
 
 # class Convert_Sam_Bam(luigi.Task):
 #     """
@@ -249,22 +258,22 @@ class Convert_Bam_Cram(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return Bwa_Mem(self.sample, self.genome)
+        return [Convert_Sam_Sorted_Bam(self.sample, self.genome, 0),
+                Samtools_Fasta_Index(self.genome)]
 
     def output(self):
-        return luigi.LocalTarget("bam/"+self.sample+".bam")
+        return luigi.LocalTarget("cram/"+self.sample+".cram")
 
     def run(self):
         # perform the SAM -> BAM conversion
         bam = run_cmd(["samtools",
-                       "view", "-bhS",
-                       "sam/"+self.sample+".sam"])
+                       "view",
+                       "-C",                              # output a CRAM file
+                       "-o", "cram/"+self.sample+".cram", # output location
+                       "-T", "fasta/"+self.genome+".fa",  # reference genome
+                       "bam/"+self.sample+".bam"])        # input BAM file
 
-        # save the BAM file
-        with self.output().open('w') as bam_out:
-            bam_out.write(bam)
-
-        print "===== Converting Sam file to Bam file ======"
+        print "===== Converted BAM file to CRAM ======"
 
 # class Index_Bam(luigi.Task):
 #
