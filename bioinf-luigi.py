@@ -20,11 +20,16 @@ def run_cmd(cmd):
     """
     print cmd
     proc = subprocess.Popen(cmd, shell=False, universal_newlines=True, stdout=subprocess.PIPE)
-    (output, error) = proc.communicate()
-    if error:
-        print error
+    (stdout, stderr) = proc.communicate()
+
+    # TODO remove when done debugging
+    print vars(proc)
+
+    if stderr:
+        print stderr
         exit()
-    return output
+
+    return stdout
 
 class Curl_Download(luigi.Task):
     """
@@ -103,8 +108,9 @@ class Bwa_Index(luigi.Task):
     def run(self):
         run_cmd(["bwa",
                  "index",
-                 "-a bwtsw",
+                 "-a", "bwtsw",
                  "fasta/%s.fa" % self.genome])
+
         print "====== Built the BWA index ======"
 
 class Bwa_Mem(luigi.Task):
@@ -126,8 +132,8 @@ class Bwa_Mem(luigi.Task):
         # perform the alignment
         sam = run_cmd(["bwa",
                        "mem",
-                       "-t 8",
-                       '-R "@RG\tID:{sample}\tSM:{sample}\t"'.format(sample=self.sample),
+                       "-t", "8",
+                       "-R", "@RG\tID:{sample}\tSM:{sample}\t".format(sample=self.sample),
                        "fasta/%s.fa" % self.genome,
                        "fastq/%s_1.fastq" % self.sample,
                        "fastq/%s_2.fastq" % self.sample])
@@ -139,123 +145,123 @@ class Bwa_Mem(luigi.Task):
         print "====== Aligned the FASTQ using BWA ======"
 
 
-class Convert_Sam_Bam(luigi.Task):
-    """
-    Convert an uncompressed SAM file into BAM format
-    """
-    sample = luigi.Parameter()
-    genome = luigi.Parameter()
-
-    def requires(self):
-        return Bwa_Mem(self.sample, self.genome)
-
-    def output(self):
-        return luigi.LocalTarget("bam/%s.bam" % self.sample)
-
-    def run(self):
-        # perform the SAM -> BAM conversion
-        bam = run_cmd(["samtools", "view", "-bS", "sam/%s.sam" % self.sample])
-
-        # save the BAM file
-        with self.output().open('w') as bam_out:
-            bam_out.write(bam)
-
-        print "===== Converting Sam file to Bam file ======"
-
-class Sort_Bam(luigi.Task):
-
-    sample = luigi.Parameter()
-
-    def requires(self):
-        return Convert_Sam_Bam(self.sample)
-
-    def run(self):
-        tmp = run_cmd(["samtools",
-                       "sort",
-                       "bam/"+self.sample+".bam",
-                       "bam/"+self.sample+".sorted"])
-
-        print "===== Sorting Bam ======="
-
-class Index_Bam(luigi.Task):
-
-    sample = luigi.Parameter()
-
-    def output(self):
-        print "Indexing ... Done"
-
-    def requires(self):
-        return Sort_Bam(self.sample)
-
-    def run(self):
-        tmp = run_cmd(["samtools",
-                       "index",
-                       "bam/"+self.sample+".sorted.bam"])
-
-        print "==== Indexing Bam ===="
-
-
-class Call_Variant(luigi.Task):
-
-    sample = luigi.Parameter()
-
-    def requires(self):
-        return Index_Bam(self.sample)
-
-    def output(self):
-        return luigi.LocalTarget("bcf/%s.bcf" % self.sample)
-
-    def run(self):
-        tmp = run_cmd(["samtools",
-                       "mpileup",
-                       "-u",
-                       "-f",
-                       genome,
-                       "bam/"+self.sample+".sorted.bam"])
-
-        with self.output().open("w") as bcf_file:
-            bcf_file.write(tmp)
-
-        print "=====  Calling Variants ======="
-
-
-class Convert_Bcf_Vcf(luigi.Task):
-
-    sample = luigi.Parameter()
-
-    def requires(self):
-        return Call_Variant(self.sample)
-
-    def output(self):
-        return luigi.LocalTarget("vcf/%s.vcf" % self.sample)
-
-    def run(self):
-        tmp = run_cmd(["bcftools",
-                       "view",
-                       "-v",
-                       "-c",
-                       "-g",
-                       "bcf/"+self.sample+".bcf"])
-
-        with self.output().open("w") as vcf_file:
-            vcf_file.write(tmp)
-
-        print "===== Creating VCF ======="
-
-
-class Custom_Genome_Pipeline(luigi.Task):
-
-    def requires(self):
-        return [Convert_Bcf_Vcf(sample) for sample in sample_list]
-
-    def output(self):
-        return luigi.LocalTarget("log.txt")
-
-    def run(self):
-        print "running..."
-        #for sample in sample_list:
-            #print sample+"\n"
-            #return Convert_Bcf_Vcf(sample)
+# class Convert_Sam_Bam(luigi.Task):
+#     """
+#     Convert an uncompressed SAM file into BAM format
+#     """
+#     sample = luigi.Parameter()
+#     genome = luigi.Parameter()
+#
+#     def requires(self):
+#         return Bwa_Mem(self.sample, self.genome)
+#
+#     def output(self):
+#         return luigi.LocalTarget("bam/%s.bam" % self.sample)
+#
+#     def run(self):
+#         # perform the SAM -> BAM conversion
+#         bam = run_cmd(["samtools", "view", "-bS", "sam/%s.sam" % self.sample])
+#
+#         # save the BAM file
+#         with self.output().open('w') as bam_out:
+#             bam_out.write(bam)
+#
+#         print "===== Converting Sam file to Bam file ======"
+#
+# class Sort_Bam(luigi.Task):
+#
+#     sample = luigi.Parameter()
+#
+#     def requires(self):
+#         return Convert_Sam_Bam(self.sample)
+#
+#     def run(self):
+#         tmp = run_cmd(["samtools",
+#                        "sort",
+#                        "bam/"+self.sample+".bam",
+#                        "bam/"+self.sample+".sorted"])
+#
+#         print "===== Sorting Bam ======="
+#
+# class Index_Bam(luigi.Task):
+#
+#     sample = luigi.Parameter()
+#
+#     def output(self):
+#         print "Indexing ... Done"
+#
+#     def requires(self):
+#         return Sort_Bam(self.sample)
+#
+#     def run(self):
+#         tmp = run_cmd(["samtools",
+#                        "index",
+#                        "bam/"+self.sample+".sorted.bam"])
+#
+#         print "==== Indexing Bam ===="
+#
+#
+# class Call_Variant(luigi.Task):
+#
+#     sample = luigi.Parameter()
+#
+#     def requires(self):
+#         return Index_Bam(self.sample)
+#
+#     def output(self):
+#         return luigi.LocalTarget("bcf/%s.bcf" % self.sample)
+#
+#     def run(self):
+#         tmp = run_cmd(["samtools",
+#                        "mpileup",
+#                        "-u",
+#                        "-f",
+#                        genome,
+#                        "bam/"+self.sample+".sorted.bam"])
+#
+#         with self.output().open("w") as bcf_file:
+#             bcf_file.write(tmp)
+#
+#         print "=====  Calling Variants ======="
+#
+#
+# class Convert_Bcf_Vcf(luigi.Task):
+#
+#     sample = luigi.Parameter()
+#
+#     def requires(self):
+#         return Call_Variant(self.sample)
+#
+#     def output(self):
+#         return luigi.LocalTarget("vcf/%s.vcf" % self.sample)
+#
+#     def run(self):
+#         tmp = run_cmd(["bcftools",
+#                        "view",
+#                        "-v",
+#                        "-c",
+#                        "-g",
+#                        "bcf/"+self.sample+".bcf"])
+#
+#         with self.output().open("w") as vcf_file:
+#             vcf_file.write(tmp)
+#
+#         print "===== Creating VCF ======="
+#
+#
+# class Custom_Genome_Pipeline(luigi.Task):
+#
+#     def requires(self):
+#         return [Convert_Bcf_Vcf(sample) for sample in sample_list]
+#
+#     def output(self):
+#         return luigi.LocalTarget("log.txt")
+#
+#     def run(self):
+#         print "running..."
+#         #for sample in sample_list:
+#             #print sample+"\n"
+#             #return Convert_Bcf_Vcf(sample)
 
 
 if __name__=='__main__':
