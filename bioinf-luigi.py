@@ -15,6 +15,8 @@ genome_url = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
 pair2_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz"
 
+NO_COMPRESSION = 0;
+
 def run_cmd(cmd):
     """
     Executes the given command in a system subprocess
@@ -38,6 +40,7 @@ def run_cmd(cmd):
     # TODO remove when done debugging
     print vars(proc)
 
+    # TODO do we need to delete the parent task's output if this is triggered?
     if proc.returncode:
         print stderr
         exit()
@@ -208,6 +211,11 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
                  "-o", "bam/"+self.sample+".bam", # output location
                  "sam/"+self.sample+".sam"])      # input SAM file
 
+        # TODO switch to buffered output
+        # save the BAM file
+        # with self.output().open('w') as file:
+        #     file.write(bam)
+
         print "===== Converted SAM file to BAM ======"
 
 # class Convert_Sam_Bam(luigi.Task):
@@ -258,22 +266,45 @@ class Convert_Bam_Cram(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return [Convert_Sam_Sorted_Bam(self.sample, self.genome, 0),
+        return [Convert_Sam_Sorted_Bam(self.sample, self.genome, NO_COMPRESSION),
                 Samtools_Fasta_Index(self.genome)]
 
     def output(self):
         return luigi.LocalTarget("cram/"+self.sample+".cram")
 
     def run(self):
+        # get the count of CPUs
+        cores = multiprocessing.cpu_count()  # TODO should this be limited?
+
         # perform the SAM -> BAM conversion
-        bam = run_cmd(["samtools",
-                       "view",
-                       "-C",                              # output a CRAM file
-                       "-o", "cram/"+self.sample+".cram", # output location
-                       "-T", "fasta/"+self.genome+".fa",  # reference genome
-                       "bam/"+self.sample+".bam"])        # input BAM file
+        run_cmd(["samtools",
+                 "view",
+                 "-C",                              # output a CRAM file
+                 "-@", cores,                       # number of cores
+                 "-o", "cram/"+self.sample+".cram", # output location
+                 "-T", "fasta/"+self.genome+".fa",  # reference genome
+                 "bam/"+self.sample+".bam"])        # input BAM file
 
         print "===== Converted BAM file to CRAM ======"
+
+class Samtools_MPileup(luigi.Task):
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return Convert_Bam_Cram(self.sample, self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("pileup/"+self.sample+".pileup")
+
+    def run(self):
+        run_cmd(["samtools",
+                 "mpileup",                             # output a pileup file
+                 "-o", "pileup/"+self.sample+".pileup", # output location
+                 "-f", "fasta/"+self.genome+".fa",      # reference genome
+                 "cram/"+self.sample+".cram"])          # input CRAM file
+
+        print "===== Converted CRAM file to pileup ======="
 
 # class Index_Bam(luigi.Task):
 #
