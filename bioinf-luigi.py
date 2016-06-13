@@ -4,14 +4,15 @@ import luigi
 import os
 import random
 
-# downloade from http://coderscrowd.com/app/public/codes/view/229
+# downloaded from http://coderscrowd.com/app/public/codes/view/229
 
-#faking the pipline for now
+# the URL for the reference genome
+genome = "OryCun2.0"
+genome_url = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
-sample_list = ["GP140-10A_S19","GP140-10B_S20","GP140-11A_S21","GP140-11B_S22","GP140-1A_S1","GP140-1B_S2","GP140-2A_S3","GP140-2B_S4","GP140-3A_S5","GP140-3B_S6","GP140-4A_S7","GP140-4B_S8","GP140-5A_S9","GP140-5B_S10","GP140-6A_S11","GP140-6B_S12","GP140-7A_S13","GP140-7B_S14","GP140-8A_S15","GP140-8B_S16","GP140-9A_S17","GP140-9B_S18"]
-
-# TODO tidy these up
-genome = "Oryctolagus_cuniculus.OryCun2.0.dna.toplevel"
+# the URLs for the paried end fastq files
+pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
+pair2_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz"
 
 def run_cmd(cmd):
     """
@@ -20,7 +21,9 @@ def run_cmd(cmd):
     print cmd
     proc = subprocess.Popen(cmd, shell=False, universal_newlines=True, stdout=subprocess.PIPE)
     (output, error) = proc.communicate()
-
+    if error:
+        print error
+        exit()
     return output
 
 class Curl_Download(luigi.Task):
@@ -45,12 +48,10 @@ class PairedEnd_Fastq(luigi.Task):
     sample = luigi.Parameter()
 
     def requires(self):
-        # download the gzipped fastq files from the EBI ftp server
-        url1 = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz".format(sample=self.sample)
-        url2 = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz".format(sample=self.sample)
-
-        return [Curl_Download(url1, "fastq/%s_1.fastq.gz" % self.sample),
-                Curl_Download(url2, "fastq/%s_2.fastq.gz" % self.sample)]
+        global pair1_url, pair2_url
+        # download the gzipped fastq files
+        return [Curl_Download(pair1_url.format(sample=self.sample), "fastq/%s_1.fastq.gz" % self.sample),
+                Curl_Download(pair2_url.format(sample=self.sample), "fastq/%s_2.fastq.gz" % self.sample)]
 
     def output(self):
         return [luigi.LocalTarget("fastq/%s_1.fastq" % self.sample),
@@ -71,10 +72,9 @@ class Genome_Fasta(luigi.Task):
     # url = luigi.Parameter()
 
     def requires(self):
-        # download the gzipped fasta file form the reference genome
-        # TODO fix this
-        url = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
-        return Curl_Download(url, "fasta/%s.fa.gz" % self.genome)
+        global genome_url
+        # download the gzipped fasta file of the reference genome
+        return Curl_Download(genome_url, "fasta/%s.fa.gz" % self.genome)
 
     def output(self):
         return luigi.LocalTarget("fasta/%s.fa" % self.genome)
@@ -96,12 +96,15 @@ class Bwa_Index(luigi.Task):
 
     def output(self):
         files = []
-        for ext in ['amb', 'ann', 'bwt', 'fai', 'pac', 'sa']:
+        for ext in ['amb', 'ann', 'bwt', 'pac', 'sa']: # 'fai',
             files.append(luigi.LocalTarget("fasta/{genome}.fa.{ext}".format(genome=self.genome, ext=ext)))
         return files
 
     def run(self):
-        run_cmd(["bwa", "index", "-a", "bwtsw", "fasta/%s.fa" % self.genome])
+        run_cmd(["bwa",
+                 "index",
+                 "-a bwtsw",
+                 "fasta/%s.fa" % self.genome])
         print "====== Built the BWA index ======"
 
 class Bwa_Mem(luigi.Task):
@@ -109,40 +112,54 @@ class Bwa_Mem(luigi.Task):
     Align the fastq files to the reference genome
     """
     sample = luigi.Parameter()
+    genome = luigi.Parameter()
 
     def requires(self):
-       return [PairedEnd_Fastq(self.sample), Bwa_Index("OryCun2.0")]
+        return [PairedEnd_Fastq(self.sample), Bwa_Index(self.genome)]
 
     def output(self):
         return luigi.LocalTarget("sam/%s.sam" % self.sample)
 
     def run(self):
-        tmp = run_cmd(["bwa", "mem", genome, "fastq/%s_1.fastq" % self.sample, "fastq/%s_2.fastq" % self.sample])
+        # TODO add the sample name to the readgroup header
+        # TODO paramaterise the number of cores
+        # perform the alignment
+        sam = run_cmd(["bwa",
+                       "mem",
+                       "-t 8",
+                       '-R "@RG\tID:{sample}\tSM:{sample}\t"'.format(sample=self.sample),
+                       "fasta/%s.fa" % self.genome,
+                       "fastq/%s_1.fastq" % self.sample,
+                       "fastq/%s_2.fastq" % self.sample])
 
-        with self.output().open('w') as sam_out:
-            sam_out.write(tmp)
+        # save the SAM file
+        with self.output().open('w') as file:
+            file.write(sam)
 
         print "====== Aligned the FASTQ using BWA ======"
 
 
 class Convert_Sam_Bam(luigi.Task):
-
+    """
+    Convert an uncompressed SAM file into BAM format
+    """
     sample = luigi.Parameter()
-    #genome = luigi.Parameter()
+    genome = luigi.Parameter()
 
     def requires(self):
-        return Bwa_Mem(self.sample)
+        return Bwa_Mem(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("bam/%s.bam" % self.sample)
 
     def run(self):
-        tmp = run_cmd(["samtools",
-                       "view",
-                       "-bS",
-                       "sam/"+self.sample+".sam"])
+        # perform the SAM -> BAM conversion
+        bam = run_cmd(["samtools", "view", "-bS", "sam/%s.sam" % self.sample])
+
+        # save the BAM file
         with self.output().open('w') as bam_out:
-            bam_out.write(tmp)
+            bam_out.write(bam)
+
         print "===== Converting Sam file to Bam file ======"
 
 class Sort_Bam(luigi.Task):
