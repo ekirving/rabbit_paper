@@ -179,8 +179,8 @@ class Bwa_Mem(luigi.Task):
                        "fastq/"+self.sample+"_2.fastq"]) # pair 2
 
         # save the SAM file
-        with self.output().open('w') as file:
-            file.write(sam)
+        with self.output().open('w') as fout:
+            fout.write(sam)
 
         print "====== Aligned the FASTQ using BWA ======"
 
@@ -203,18 +203,16 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
         cores = multiprocessing.cpu_count()  # TODO should this be limited?
 
         # perform the SAM -> BAM conversion and sorting
-        run_cmd(["samtools",
+        bam = run_cmd(["samtools",
                  "sort",                          # sort the reads
                  "-l", self.compression,          # level of compression
                  "-@", cores,                     # number of cores
                  "-O", "bam",                     # output a BAM file
-                 "-o", "bam/"+self.sample+".bam", # output location
-                 "sam/"+self.sample+".sam"])      # input SAM file
+                 "sam/"+self.sample+".sam"])      # input a SAM file
 
-        # TODO switch to buffered output
         # save the BAM file
-        # with self.output().open('w') as file:
-        #     file.write(bam)
+        with self.output().open('w') as fout:
+            fout.write(bam)
 
         print "===== Converted SAM file to BAM ======"
 
@@ -238,8 +236,8 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
 #                        "sam/"+self.sample+".sam"])
 #
 #         # save the BAM file
-#         with self.output().open('w') as bam_out:
-#             bam_out.write(bam)
+#         with self.output().open('w') as fout:
+#             fout.write(bam)
 #
 #         print "===== Converting Sam file to Bam file ======"
 #
@@ -277,13 +275,16 @@ class Convert_Bam_Cram(luigi.Task):
         cores = multiprocessing.cpu_count()  # TODO should this be limited?
 
         # perform the SAM -> BAM conversion
-        run_cmd(["samtools",
-                 "view",
-                 "-C",                              # output a CRAM file
-                 "-@", cores,                       # number of cores
-                 "-o", "cram/"+self.sample+".cram", # output location
-                 "-T", "fasta/"+self.genome+".fa",  # reference genome
-                 "bam/"+self.sample+".bam"])        # input BAM file
+        cram = run_cmd(["samtools",
+                        "view",
+                        "-@", cores,                       # number of cores
+                        "-C",                              # output a CRAM file
+                        "-o", "cram/"+self.sample+".cram", # output location
+                        "bam/"+self.sample+".bam"])        # input BAM file
+
+        # save the CRAM file
+        with self.output().open('w') as fout:
+            fout.write(cram)
 
         print "===== Converted BAM file to CRAM ======"
 
@@ -298,11 +299,15 @@ class Samtools_MPileup(luigi.Task):
         return luigi.LocalTarget("pileup/"+self.sample+".pileup")
 
     def run(self):
-        run_cmd(["samtools",
-                 "mpileup",                             # output a pileup file
-                 "-o", "pileup/"+self.sample+".pileup", # output location
-                 "-f", "fasta/"+self.genome+".fa",      # reference genome
-                 "cram/"+self.sample+".cram"])          # input CRAM file
+        pileup = run_cmd(["samtools",
+                          "mpileup",                             # output a pileup file
+                          # "-o", "pileup/"+self.sample+".pileup", # output location
+                          "-f", "fasta/"+self.genome+".fa",      # reference genome
+                          "cram/"+self.sample+".cram"])          # input CRAM file
+
+        # save the pileup file
+        with self.output().open('w') as fout:
+            fout.write(pileup)
 
         print "===== Converted CRAM file to pileup ======="
 
