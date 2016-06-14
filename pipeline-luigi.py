@@ -12,7 +12,8 @@ GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
 # the list of sample codes
-SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320','SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
+# SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320','SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
+SAMPLES = ['SRR997303','SRR997304','SRR997305']
 
 # the URLs for the paried end fastq files
 pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
@@ -61,6 +62,7 @@ class Curl_Download(luigi.Task):
         return luigi.LocalTarget(self.file)
 
     def run(self):
+        # TODO should this be piped too?
         tmp = run_cmd(["curl", "-so", self.file, self.url])
 
         print "====== cURL Downloading file ======"
@@ -382,10 +384,12 @@ class Samtools_MPileup(luigi.Task):
 #         print "===== Creating VCF ======="
 
 class Custom_Genome_Pipeline(luigi.Task):
-
+    """
+    Run all the samples through the pipeline
+    """
     def requires(self):
-        return [Samtools_MPileup(sample, GENOME) for sample in sample_list]
-
+        for sample in SAMPLES:
+            yield Samtools_MPileup(sample, GENOME)
 
 if __name__=='__main__':
     luigi.run()
