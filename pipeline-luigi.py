@@ -5,21 +5,26 @@ import os
 import random
 import multiprocessing
 
-# downloaded from http://coderscrowd.com/app/public/codes/view/229
+# Based on example pipleine from http://coderscrowd.com/app/public/codes/view/229
 
 # the reference genome
 GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
 # the list of sample codes
-# SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320','SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
-SAMPLES = ['SRR997303','SRR997304','SRR997305']
+# SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320',
+#            'SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
+SAMPLES = ['SRR997303','SRR997304']
 
 # the URLs for the paried end fastq files
 pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
 pair2_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz"
 
-NO_COMPRESSION = 0;
+# the samtools flag for using no comression
+NO_COMPRESSION = 0
+
+# no single worker should use more than 50% of the available cores
+MAX_CPU_CORES = multiprocessing.cpu_count() * 0.5
 
 def run_cmd(cmd):
     """
@@ -62,7 +67,7 @@ class Curl_Download(luigi.Task):
         return luigi.LocalTarget(self.file)
 
     def run(self):
-        # TODO should this be piped too?
+        # TODO this should be piped too
         tmp = run_cmd(["curl", "-so", self.file, self.url])
 
         print "====== cURL Downloading file ======"
@@ -86,7 +91,7 @@ class PairedEnd_Fastq(luigi.Task):
     def run(self):
         # unzip the files
         (file1, file2) = self.output()
-        run_cmd(["gunzip", "-k", file1.path, file2.path])
+        run_cmd(["gunzip", "-k", file1.path, file2.path]) # TODO use multithreading
 
         print "====== Downloaded Paired-end FASTQ ======"
 
@@ -166,9 +171,6 @@ class Bwa_Mem(luigi.Task):
         return luigi.LocalTarget("sam/"+self.sample+".sam")
 
     def run(self):
-        # get the count of CPUs
-        cores = multiprocessing.cpu_count() # TODO should this be limited?
-
         # TODO add the sample name to the readgroup header
         readgroup= "@RG\\tID:{sample}\\tSM:{sample}".format(sample=self.sample)
 
