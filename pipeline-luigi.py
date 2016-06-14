@@ -20,21 +20,23 @@ SAMPLES = ['SRR997303','SRR997304']
 pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
 pair2_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz"
 
-# the samtools flag for using no comression
-NO_COMPRESSION = 0
+# the samtools flag for BAM file comression
+DEFAULT_COMPRESSION = 6
 
+# TODO find out how many workers there are
 # no single worker should use more than 50% of the available cores
-MAX_CPU_CORES = multiprocessing.cpu_count() * 0.5
+MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
 def run_cmd(cmd):
     """
     Executes the given command in a system subprocess
     """
-    # TODO remove when done debugging
-    print cmd
 
     # subprocess only accepts strings
     cmd = [str(args) for args in cmd]
+
+    # TODO remove when done debugging
+    print cmd
 
     # run the command
     proc = subprocess.Popen(cmd,
@@ -42,6 +44,8 @@ def run_cmd(cmd):
                             # universal_newlines=True,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
+
+    # TODO write all bash commands to a script and log it
 
     # fetch the output and error
     (stdout, stderr) = proc.communicate()
@@ -56,6 +60,29 @@ def run_cmd(cmd):
 
     return stdout
 
+def Unzip_File(gzip):
+    """
+    Unzip a gzipped file, using multi-threading when available
+    """
+    try:
+        # use unpigz for multithreaded unzipping (if installed)
+        return run_cmd(["unpigz",
+                        "-c",                # output to stdout
+                        "-p", MAX_CPU_CORES, # use the maximum cores
+                        gzip])               # gzip file
+
+    except OSError as e:
+        # if it's not installed
+        if e.errno == os.errno.ENOENT:
+
+            # use single-threaded gunzip
+            return run_cmd(["gunzip",
+                            "-c",            # output to stdout
+                            gzip])           # gzip file
+        else:
+            # escalate the exception
+            raise e
+
 class Curl_Download(luigi.Task):
     """
     Downloads a remote url to a local file path using cURL
@@ -67,8 +94,14 @@ class Curl_Download(luigi.Task):
         return luigi.LocalTarget(self.file)
 
     def run(self):
-        # TODO this should be piped too
-        tmp = run_cmd(["curl", "-so", self.file, self.url])
+        # download the file
+        stdout = run_cmd(["curl",
+                          "-s",       # download silently
+                          self.url])  # from this url
+
+        # save the file
+        with self.output().open('w') as fout:
+            fout.write(stdout)
 
         print "====== cURL Downloading file ======"
 
@@ -89,9 +122,16 @@ class PairedEnd_Fastq(luigi.Task):
                 luigi.LocalTarget("fastq/"+self.sample+"_2.fastq")]
 
     def run(self):
-        # unzip the files
-        (file1, file2) = self.output()
-        run_cmd(["gunzip", "-k", file1.path, file2.path]) # TODO use multithreading
+        # fetch the downloaded files
+        (pair1, pair2) = self.requires()
+
+        # unzip them
+        fastq1 = Unzip_File(pair1.file)
+        fastq2 = Unzip_File(pair2.file)
+
+        with self.output()[0].open('w') as fout1, self.output()[1].open('w') as fout2:
+            fout1.write(fastq1)
+            fout2.write(fastq2)
 
         print "====== Downloaded Paired-end FASTQ ======"
 
@@ -112,7 +152,10 @@ class Genome_Fasta(luigi.Task):
 
     def run(self):
         # unzip the file
-        run_cmd(["gunzip", "-k", self.output().path])
+        fasta = Unzip_File(self.requires().file)
+
+        with self.output().open('w') as fout:
+            fout.write(fasta)
 
         print "====== Downloaded genome FASTA ======"
 
@@ -177,7 +220,7 @@ class Bwa_Mem(luigi.Task):
         # perform the alignment
         sam = run_cmd(["bwa",
                        "mem",                            # align using the mem algorithm
-                       "-t", cores,                      # number of cores
+                       "-t", MAX_CPU_CORES,              # number of cores
                        "-R", readgroup,                  # readgroup metadata
                        "fasta/"+self.genome+".fa",       # reference genome
                        "fastq/"+self.sample+"_1.fastq",  # pair 1
@@ -195,7 +238,6 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
     """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
-    compression = luigi.Parameter(default=6)
 
     def requires(self):
         return Bwa_Mem(self.sample, self.genome)
@@ -204,16 +246,13 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
         return luigi.LocalTarget("bam/"+self.sample+".bam")
 
     def run(self):
-        # get the count of CPUs
-        cores = multiprocessing.cpu_count()  # TODO should this be limited?
-
         # perform the SAM -> BAM conversion and sorting
         bam = run_cmd(["samtools",
-                 "sort",                          # sort the reads
-                 "-l", self.compression,          # level of compression
-                 "-@", cores,                     # number of cores
-                 "-O", "bam",                     # output a BAM file
-                 "sam/"+self.sample+".sam"])      # input a SAM file
+                       "sort",                     # sort the reads
+                       "-l", DEFAULT_COMPRESSION,  # level of compression
+                       "-@", MAX_CPU_CORES,        # number of cores
+                       "-O", "bam",                # output a BAM file
+                       "sam/"+self.sample+".sam"]) # input a SAM file
 
         # save the BAM file
         with self.output().open('w') as fout:
@@ -269,20 +308,17 @@ class Convert_Bam_Cram(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return [Convert_Sam_Sorted_Bam(self.sample, self.genome, NO_COMPRESSION),
+        return [Convert_Sam_Sorted_Bam(self.sample, self.genome),
                 Samtools_Fasta_Index(self.genome)]
 
     def output(self):
         return luigi.LocalTarget("cram/"+self.sample+".cram")
 
     def run(self):
-        # get the count of CPUs
-        cores = multiprocessing.cpu_count()  # TODO should this be limited?
-
         # perform the SAM -> BAM conversion
         cram = run_cmd(["samtools",
                         "view",
-                        "-@", cores,                       # number of cores
+                        "-@", MAX_CPU_CORES,               # number of cores
                         "-C",                              # output a CRAM file
                         "-o", "cram/"+self.sample+".cram", # output location
                         "bam/"+self.sample+".bam"])        # input BAM file
