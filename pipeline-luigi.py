@@ -22,9 +22,8 @@ pair2_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
 
-# TODO find out how many workers there are
-# no single worker should use more than 50% of the available cores
-MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
+# consume all the available cores
+MAX_CPU_CORES = multiprocessing.cpu_count()
 
 def run_cmd(cmd):
     """
@@ -62,6 +61,9 @@ def run_cmd(cmd):
 def Unzip_File(gzip):
     """
     Unzip a gzipped file, using multi-threading when available
+
+    :param gzip: The path to the gzip file
+    :return: The uncompressed data stream
     """
     try:
         # use unpigz for multithreaded unzipping (if installed)
@@ -259,45 +261,26 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
 
         print "===== Converted SAM file to BAM ======"
 
-# class Convert_Sam_Bam(luigi.Task):
-#     """
-#     Convert an uncompressed SAM file into BAM format
-#     """
-#     sample = luigi.Parameter()
-#     genome = luigi.Parameter()
-#
-#     def requires(self):
-#         return Bwa_Mem(self.sample, self.genome)
-#
-#     def output(self):
-#         return luigi.LocalTarget("bam/"+self.sample+".bam")
-#
-#     def run(self):
-#         # perform the SAM -> BAM conversion
-#         bam = run_cmd(["samtools",
-#                        "view", "-bhS",
-#                        "sam/"+self.sample+".sam"])
-#
-#         # save the BAM file
-#         with self.output().open('w') as fout:
-#             fout.write(bam)
-#
-#         print "===== Converting Sam file to Bam file ======"
-#
-# class Sort_Bam(luigi.Task):
-#
-#     sample = luigi.Parameter()
-#
-#     def requires(self):
-#         return Convert_Sam_Bam(self.sample)
-#
-#     def run(self):
-#         run_cmd(["samtools",
-#                  "sort",
-#                  "bam/"+self.sample+".bam",
-#                  "bam/"+self.sample+".sorted"])
-#
-#         print "===== Sorting Bam ======="
+class Index_Bam(luigi.Task):
+    """
+    Create an index for the BAM file, for fast random access
+    """
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget("bam/" + self.sample + ".bam.bai")
+
+    def requires(self):
+        return Convert_Sam_Sorted_Bam(self.sample, self.genome)
+
+    def run(self):
+        tmp = run_cmd(["samtools",
+                       "index",
+                       "-b",                        # create a BAI index
+                       "cram/"+self.sample+".bam"]) # file to index
+
+        print "==== Indexing CRAM ===="
 
 class Convert_Bam_Cram(luigi.Task):
     """
@@ -307,7 +290,7 @@ class Convert_Bam_Cram(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return [Convert_Sam_Sorted_Bam(self.sample, self.genome),
+        return [Index_Bam(self.sample, self.genome),
                 Samtools_Fasta_Index(self.genome)]
 
     def output(self):
@@ -330,7 +313,7 @@ class Convert_Bam_Cram(luigi.Task):
 
 class Index_Cram(luigi.Task):
     """
-    Create an index for the CRAM file for fast random access
+    Create an index for the CRAM file, for fast random access
     """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
