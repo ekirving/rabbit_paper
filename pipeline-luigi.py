@@ -277,8 +277,8 @@ class Index_Bam(luigi.Task):
     def run(self):
         tmp = run_cmd(["samtools",
                        "index",
-                       "-b",                        # create a BAI index
-                       "cram/"+self.sample+".bam"]) # file to index
+                       "-b",                       # create a BAI index
+                       "bam/"+self.sample+".bam"]) # file to index
 
         print "==== Indexing CRAM ===="
 
@@ -302,7 +302,6 @@ class Convert_Bam_Cram(luigi.Task):
                         "view",
                         "-@", MAX_CPU_CORES,               # number of cores
                         "-C",                              # output a CRAM file
-                        "-o", "cram/"+self.sample+".cram", # output location
                         "bam/"+self.sample+".bam"])        # input BAM file
 
         # save the CRAM file
