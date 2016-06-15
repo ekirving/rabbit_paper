@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use Bio::SeqIO;
 
+# File downloaded from... https://groups.google.com/d/msg/dadi-user/p1WvTKRI9_0/3GZmmJRprhUJ
+
 my ($file,$vcf,$list)=@ARGV;
 # $file is the location of genome file; $list is like this:
 # BEGIN
