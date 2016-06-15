@@ -1,2 +1,5 @@
-# Ignore the PyCharm backup file
+# PyCharm temp file
 *.pyc
+
+# output logging from nohup command
+nohup.out
