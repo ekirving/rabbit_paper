@@ -177,7 +177,7 @@ class Samtools_Fasta_Index(luigi.Task):
         return luigi.LocalTarget("fasta/"+self.genome+".fa")
 
     def run(self):
-        run_cmd(["samtools",
+        run_cmd(["samtools1.3",
                  "faidx",                     # index needed for CRAM files
                  "fasta/"+self.genome+".fa"]) # input file
 
@@ -252,7 +252,7 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
 
     def run(self):
         # perform the SAM -> BAM conversion and sorting
-        bam = run_cmd(["samtools",
+        bam = run_cmd(["samtools1.3",
                        "sort",                     # sort the reads
                        "-l", DEFAULT_COMPRESSION,  # level of compression
                        "-@", MAX_CPU_CORES,        # number of cores
@@ -279,7 +279,7 @@ class Index_Bam(luigi.Task):
         return Convert_Sam_Sorted_Bam(self.sample, self.genome)
 
     def run(self):
-        tmp = run_cmd(["samtools",
+        tmp = run_cmd(["samtools1.3",
                        "index",
                        "-b",                       # create a BAI index
                        "bam/"+self.sample+".bam"]) # file to index
@@ -302,7 +302,7 @@ class Convert_Bam_Cram(luigi.Task):
 
     def run(self):
         # perform the SAM -> BAM conversion
-        cram = run_cmd(["samtools",
+        cram = run_cmd(["samtools1.3",
                         "view",
                         "-@", MAX_CPU_CORES,        # number of cores
                         "-C",                       # output a CRAM file
@@ -328,7 +328,7 @@ class Index_Cram(luigi.Task):
         return Convert_Bam_Cram(self.sample, self.genome)
 
     def run(self):
-        tmp = run_cmd(["samtools",
+        tmp = run_cmd(["samtools1.3",
                        "index",
                        "cram/" + self.sample + ".cram"])
 
@@ -345,7 +345,7 @@ class Samtools_MPileup(luigi.Task):
         return luigi.LocalTarget("pileup/"+self.sample+".pileup")
 
     def run(self):
-        pileup = run_cmd(["samtools",
+        pileup = run_cmd(["samtools1.3",
                           "mpileup",                             # output a pileup file
                           "-o", "pileup/"+self.sample+".pileup", # output location
                           "-f", "fasta/"+self.genome+".fa",      # reference genome
