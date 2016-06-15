@@ -301,12 +301,13 @@ class Convert_Bam_Cram(luigi.Task):
         return luigi.LocalTarget("cram/"+self.sample+".cram")
 
     def run(self):
-        # perform the SAM -> BAM conversion
+        # perform the BAM -> CRAM conversion
         cram = run_cmd(["samtools1.3",
                         "view",
-                        "-@", MAX_CPU_CORES,        # number of cores
-                        "-C",                       # output a CRAM file
-                        "bam/"+self.sample+".bam"]) # input BAM file
+                        "-@", MAX_CPU_CORES,              # number of cores
+                        "-C",                             # output a CRAM file
+                        "-T", "fasta/"+self.genome+".fa", # reference genome
+                        "bam/"+self.sample+".bam"])       # input BAM file
 
         # save the CRAM file
         with self.output().open('w') as fout:
