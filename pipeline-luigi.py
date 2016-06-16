@@ -4,6 +4,8 @@ import luigi
 import os
 import random
 import multiprocessing
+import numpy
+import json
 
 # Based on example pipleine from http://coderscrowd.com/app/public/codes/view/229
 
@@ -279,10 +281,10 @@ class Index_Bam(luigi.Task):
         return Convert_Sam_Sorted_Bam(self.sample, self.genome)
 
     def run(self):
-        tmp = run_cmd(["samtools1.3",
-                       "index",
-                       "-b",                       # create a BAI index
-                       "bam/"+self.sample+".bam"]) # file to index
+        run_cmd(["samtools1.3",
+                 "index",
+                 "-b",                       # create a BAI index
+                 "bam/"+self.sample+".bam"]) # file to index
 
         print "==== Indexing CRAM ===="
 
@@ -329,13 +331,16 @@ class Index_Cram(luigi.Task):
         return Convert_Bam_Cram(self.sample, self.genome)
 
     def run(self):
-        tmp = run_cmd(["samtools1.3",
-                       "index",
-                       "cram/" + self.sample + ".cram"])
+        run_cmd(["samtools1.3",
+                 "index",
+                 "cram/" + self.sample + ".cram"])
 
         print "==== Indexing CRAM ===="
 
 class Samtools_MPileup(luigi.Task):
+    """
+    Convert the CRAM file into a pileup
+    """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
 
@@ -359,6 +364,39 @@ class Samtools_MPileup(luigi.Task):
         #     fout.write(pileup)
 
         print "===== Converted CRAM file to pileup ======="
+
+class Coverage_Stats(luigi.Task):
+    """
+    Parse the pileup and compute depth of coverage statistics
+
+    NB. Method is very memory hungry
+    """
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return Samtools_MPileup(self.sample, self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("pileup/"+self.sample+".pileup.stats")
+
+    def run(self):
+        quartiles = {}
+
+        # parse the pileup and load the coverage data into memory!!
+        coverage = numpy.loadtxt("pileup/" + self.sample + ".pileup", usecols=[3])
+
+        # calcluate the 1st and 3rd quartiles
+        quartiles = numpy.percentile(coverage, [25, 75])
+
+        # convert to a json encoded dictionary
+        stats = dict(zip(('q1', 'q2'), quartiles))
+
+        # seralize the dictionary for later use
+        with self.output().open('w') as fout:
+            fout.write(json.dumps(stats))
+
+        print "===== Calcualted depth of coverage ======="
 
 class Custom_Genome_Pipeline(luigi.Task):
     """
