@@ -447,7 +447,7 @@ class Bcftools_Call(luigi.Task):
                         "call",
                         "-v",                              # output variant sites only
                         "-m",                              # multiallelic-caller
-                        "-O", "v"                          # output uncompressed VCF
+                        "-O", "v",                         # output uncompressed VCF
                         # "-o", "vcf/"+self.sample+".vcf", # output location
                         "bcf/"+self.sample+".bcf"])        # input BCF file
 
