@@ -381,16 +381,15 @@ class Coverage_Stats(luigi.Task):
         return luigi.LocalTarget("pileup/"+self.sample+".pileup.stats")
 
     def run(self):
-        quartiles = {}
 
-        # parse the pileup and load the coverage data into memory!!
-        coverage = numpy.loadtxt("pileup/" + self.sample + ".pileup", usecols=[3])
+        # parse the pileup and load the coverage data into memory (expensive!!)
+        coverage = numpy.loadtxt("pileup/" + self.sample + ".pileup", dtype=int, delimiter=' ', usecols=[3])
+
+        # make a dictionary
+        stats = {}
 
         # calcluate the 1st and 3rd quartiles
-        quartiles = numpy.percentile(coverage, [25, 75])
-
-        # convert to a json encoded dictionary
-        stats = dict(zip(('q1', 'q2'), quartiles))
+        (stats['q1'], stats['q2']) = numpy.percentile(coverage, [25, 75])
 
         # seralize the dictionary for later use
         with self.output().open('w') as fout:
@@ -398,13 +397,43 @@ class Coverage_Stats(luigi.Task):
 
         print "===== Calcualted depth of coverage ======="
 
+
+class Call_Genotypes(luigi.Task):
+    """
+    Convert the BAM file into a BCF
+    """
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return Index_Cram(self.sample, self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("bcf/"+self.sample+".bcf")
+
+    def run(self):
+        pileup = run_cmd(["samtools1.3",
+                          "mpileup",
+                          "-g",                              # call genotypes
+                          "-o", "bcf/"+self.sample+".bcf",   # output location
+                          "-f", "fasta/"+self.genome+".fa",  # reference genome
+                          "cram/"+self.sample+".cram"])      # input CRAM file
+
+        # TODO can't use output pipe because it fails with error "IOError: [Errno 22] Invalid argument"
+
+        # save the pileup file
+        # with self.output().open('w') as fout:
+        #     fout.write(pileup)
+
+        print "===== Converted CRAM file to pileup ======="
+
 class Custom_Genome_Pipeline(luigi.Task):
     """
     Run all the samples through the pipeline
     """
     def requires(self):
         for sample in SAMPLES:
-            yield Coverage_Stats(sample, GENOME)
+            yield Call_Genotypes(sample, GENOME)
 
 if __name__=='__main__':
     luigi.run()
