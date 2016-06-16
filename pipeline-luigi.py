@@ -404,7 +404,7 @@ class Custom_Genome_Pipeline(luigi.Task):
     """
     def requires(self):
         for sample in SAMPLES:
-            yield Samtools_MPileup(sample, GENOME)
+            yield Coverage_Stats(sample, GENOME)
 
 if __name__=='__main__':
     luigi.run()
