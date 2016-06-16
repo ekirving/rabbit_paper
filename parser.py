@@ -1,6 +1,7 @@
 import itertools
 import numpy
 import re
+from parser_exceptions import *
 
 SAMPLES = ['SRR997303', 'SRR997325']
 
@@ -15,11 +16,18 @@ file = 'pileup/test.pileup'
 # open all files for reading
 filehandles = [open("pileup/{name}.test".format(name=sample), 'r') for sample in SAMPLES]
 
-# TODO calculate 1st quartile and 3rd quartile
-(q1, q2) = numpy.percentile(numpy.loadtxt('pileup/SRR997303.test', usecols=[3]), [25, 75])
 
-# print q1, q2
-# exit()
+
+coverage = []
+
+with open("pileup/SRR997303.test") as fin:
+    for line in fin.readlines():
+        depth = line.split()[3]
+        if (depth!='1')
+
+
+print coverage
+exit()
 
 # define the positions of the columns in a pileup
 SEQUENCE_ID = 0
@@ -29,25 +37,37 @@ COVERAGE = 3
 BASES = 4
 QUALITY = 5
 
+# dictionary of all samples
+populations = {}
+
+# wild population, w/ accession codes and sample ID
+populations['wildfrench'] = {}
+populations['wildfrench']['SRR997319']='Avey36' # Aveyron
+populations['wildfrench']['SRR997317']='Fos6'   # Fos-su-Mer
+populations['wildfrench']['SRR997304']='Fos2'   # Fos-su-Mer
+populations['wildfrench']['SRR997303']='Her65'  # Herauld
+populations['wildfrench']['SRR997318']='Lan7'   # Lancon
+populations['wildfrench']['SRR997316']='Lan8'   # Lancon
+populations['wildfrench']['SRR997305']='Vau73'  # Vaucluse
+
+# domestic population, w/ accession codes and sample ID
+populations['domestic'] = {}
+populations['domestic']['SRR997325']='BH23'      # Belgian hare
+populations['domestic']['SRR997320']='FA801'     # Champagne d'argent
+populations['domestic']['SRR997321']='AC100'     # Angora
+populations['domestic']['SRR997327']='A93015'    # Angora
+populations['domestic']['SRR997323']='FL920'     # French lop
+populations['domestic']['SRR997326']='FG3'       # Flemish giant
+populations['domestic']['SRR997324']='FG4'       # Flemish giant
+populations['domestic']['SRR997322']='REX12'     # Rex
+
+
+# for population, samples in populations.iteritems():
+#     for sample, code in samples.iteritems():
+#         print sample, code
 
 # TODO remove me
 print filehandles
-
-
-class InsertionError(Exception):
-    pass
-
-class DeletionError(Exception):
-    pass
-
-class CoverageError(Exception):
-    pass
-
-class PolyallelicError(Exception):
-    pass
-
-class HetOutgroup(Exception):
-    pass
 
 def parse_alleles(bases, coverage, reference):
     """
@@ -58,10 +78,10 @@ def parse_alleles(bases, coverage, reference):
     :return: List of observed alleles
     """
     if re.match('\+[0-9]+[ACGTNacgtn]+', bases):
-        raise InsertionError(bases)
+        raise InsertionException(bases)
 
     if re.match('-[0-9]+[ACGTNacgtn]+', bases):
-        raise DeletionError(bases)
+        raise DeletionException(bases)
 
     # remove end of read and beginning of read notations
     bases = re.sub('\$|\^.', '', bases)
@@ -81,7 +101,7 @@ def parse_alleles(bases, coverage, reference):
     alleles = set(bases)
 
     if len(alleles) > 2:
-        raise PolyallelicError(alleles)
+        raise PolyallelicException(alleles)
 
     return alleles
 
@@ -94,7 +114,7 @@ for lines in itertools.izip(*filehandles):
 
     # do all the sequence positions match
     if (len(set(i[POSITION] for i in lines)) != 1):
-        print "Positions don't match"
+        raise OutOfSyncPileupError(alleles)
 
     # TODO drop sites with coverage lower than 1st quartile or higer than 3rd quartile
     # TODO drop sites with indels
@@ -103,12 +123,16 @@ for lines in itertools.izip(*filehandles):
     # get the outgroup
     outgroup = lines[0]
 
+    # get the reference allele
+    ref_allele = lines[0][2]
+
+
     try:
         # get the alleles for the outgroup
         alleles = parse_alleles(outgroup[BASES], outgroup[COVERAGE], outgroup[REFERENCE])
 
         if len(alleles) != 1:
-            raise HetOutgroup(alleles)
+            raise HeterozygousException(alleles)
 
         # process the other samples
         for sample in lines[1:]:
@@ -116,14 +140,9 @@ for lines in itertools.izip(*filehandles):
             # get the alleles for the ingroup sample
             alleles = parse_alleles(sample[BASES], sample[COVERAGE], sample[REFERENCE])
 
-    except (InsertionError, DeletionError, CoverageError, PolyallelicError):
+    except (InsertionException, DeletionException, PolyallelicException, HeterozygousException):
+            # skip all sites containing indels,
+            # polyallelic sites in ingroup samples, and
+            # heterozygous sites in the outgroup
             pass
 
-
-    # print outgroup;
-
-    # get the reference allele
-    ref_allele = lines[0][2]
-
-    # print ref_allele
-    # out_allele = lines[0][3]
