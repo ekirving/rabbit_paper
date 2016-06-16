@@ -414,18 +414,18 @@ class Convert_Cram_Bcf(luigi.Task):
         return luigi.LocalTarget("bcf/"+self.sample+".bcf")
 
     def run(self):
-        pileup = run_cmd(["samtools1.3",
-                          "mpileup",
-                          "-g",                              # call genotypes
-                          "-o", "bcf/"+self.sample+".bcf",   # output location
-                          "-f", "fasta/"+self.genome+".fa",  # reference genome
-                          "cram/"+self.sample+".cram"])      # input CRAM file
+        bcf = run_cmd(["samtools1.3",
+                       "mpileup",
+                       "-g",                              # call genotypes
+                       # "-o", "bcf/"+self.sample+".bcf",   # output location
+                       "-f", "fasta/"+self.genome+".fa",  # reference genome
+                       "cram/"+self.sample+".cram"])      # input CRAM file
 
         # TODO can't use output pipe because it fails with error "IOError: [Errno 22] Invalid argument"
 
         # save the pileup file
-        # with self.output().open('w') as fout:
-        #     fout.write(pileup)
+        with self.output().open('w') as fout:
+            fout.write(bcf)
 
         print "===== Converted CRAM file to pileup ======="
 
@@ -445,7 +445,7 @@ class Bcftools_Call(luigi.Task):
     def run(self):
         vcf = run_cmd(["bcftools",
                         "call",
-                        "-v",                              # output variant sites only
+                        # "-v",                              # output variant sites only
                         "-m",                              # multiallelic-caller
                         "-O", "v",                         # output uncompressed VCF
                         # "-o", "vcf/"+self.sample+".vcf", # output location
