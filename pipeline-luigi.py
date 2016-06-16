@@ -14,8 +14,10 @@ GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
 # the list of sample codes
-SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320',
-           'SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
+# SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320',
+#            'SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
+
+SAMPLES = ['SRR997317','SRR997321', 'SRR997322']
 
 # the URLs for the paried end fastq files
 pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
@@ -398,7 +400,7 @@ class Coverage_Stats(luigi.Task):
         print "===== Calcualted depth of coverage ======="
 
 
-class Call_Genotypes(luigi.Task):
+class Convert_Cram_Bcf(luigi.Task):
     """
     Convert the BAM file into a BCF
     """
@@ -427,13 +429,41 @@ class Call_Genotypes(luigi.Task):
 
         print "===== Converted CRAM file to pileup ======="
 
+class Bcftools_Call(luigi.Task):
+    """
+    Convert the BAM file into a BCF
+    """
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return Convert_Cram_Bcf(self.sample, self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("vcf/"+self.sample+".vcf")
+
+    def run(self):
+        vcf = run_cmd(["bcftools",
+                        "call",
+                        "-v",                              # output variant sites only
+                        "-m",                              # multiallelic-caller
+                        "-O", "v"                          # output uncompressed VCF
+                        # "-o", "vcf/"+self.sample+".vcf", # output location
+                        "bcf/"+self.sample+".bcf"])        # input BCF file
+
+        # save the VCF file
+        with self.output().open('w') as fout:
+            fout.write(vcf)
+
+        print "===== Called variant sites ======="
+
 class Custom_Genome_Pipeline(luigi.Task):
     """
     Run all the samples through the pipeline
     """
     def requires(self):
         for sample in SAMPLES:
-            yield Call_Genotypes(sample, GENOME)
+            yield Bcftools_Call(sample, GENOME)
 
 if __name__=='__main__':
     luigi.run()
