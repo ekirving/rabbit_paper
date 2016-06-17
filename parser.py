@@ -17,18 +17,6 @@ file = 'pileup/test.pileup'
 filehandles = [open("pileup/{name}.test".format(name=sample), 'r') for sample in SAMPLES]
 
 
-
-coverage = []
-
-with open("pileup/SRR997303.test") as fin:
-    for line in fin.readlines():
-        depth = line.split()[3]
-        if (depth!='1')
-
-
-print coverage
-exit()
-
 # define the positions of the columns in a pileup
 SEQUENCE_ID = 0
 POSITION = 1
@@ -114,7 +102,7 @@ for lines in itertools.izip(*filehandles):
 
     # do all the sequence positions match
     if (len(set(i[POSITION] for i in lines)) != 1):
-        raise OutOfSyncPileupError(alleles)
+        raise OutOfSyncError(alleles)
 
     # TODO drop sites with coverage lower than 1st quartile or higer than 3rd quartile
     # TODO drop sites with indels

@@ -1,12 +1,18 @@
-class InsertionException(Exception):
-    """
-    Detected a site which contains an insertion
-    """
-    pass
+# class InsertionException(Exception):
+#     """
+#     Detected a site which contains an insertion
+#     """
+#     pass
+#
+# class DeletionException(Exception):
+#     """
+#     Detected a site which contains a deletion
+#     """
+#     pass
 
-class DeletionException(Exception):
+class InDelException(Exception):
     """
-    Detected a site which contains a deletion
+    Detected a site which contains an insertion or deletion
     """
     pass
 
@@ -32,7 +38,7 @@ class CoverageError(Exception):
     """
     pass
 
-class OutOfSyncPileupError(Exception):
+class OutOfSyncError(Exception):
     """
     The position values do not match across all pileups
     """
