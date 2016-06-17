@@ -25,7 +25,7 @@ QUAL = 5
 THRESHOLD = 2
 
 # open all files for reading
-filehandles = [open("vcf/{name}.vcf".format(name=sample), 'r') for sample in SAMPLES]
+filehandles = [open("vcf/{name}.vcf.short".format(name=sample), 'r') for sample in SAMPLES]
 
 
 def rephase_files(lines, filehandles):
@@ -36,39 +36,21 @@ def rephase_files(lines, filehandles):
     :param filehandles:
     :return:
     """
-
     # get the unique set of positions
     original = positions = set([int(line[POS]) for line in lines])
 
-    consensus = len(positions) == 1
-
-    # print "------------------"
-    # print "started repahsing"
+    # assume no consensus
+    consensus = False
 
     while not consensus:
-
-        # print "------------------"
-        # print "looping..."
-
-
         # get the maximum position of the current lines
         maxpos = max(positions)
 
-        # print "------------------"
-        # print "maxpos = %d" % maxpos
-
-        # advance any file handler if it is behind
         for i, unused in enumerate(lines):
-            # print "------------------"
-            # print "i = %d" % i
+            # check each file to see which ones are behind
             while int(lines[i][POS]) < maxpos:
+                # advance one line at a time
                 lines[i] = filehandles[i].next().split()
-                # print "------------------"
-                # print "current = %s" % lines[i][POS]
-
-        # for line in lines:
-        #     print line
-        # exit()
 
         # get the unique set of positions
         positions = set([int(line[POS]) for line in lines])
@@ -77,12 +59,7 @@ def rephase_files(lines, filehandles):
         if len(positions) == 1:
             consensus = True
 
-    print "Rephasing from {} to {} ".format(original, positions)
-    #
-    # print "------------------"
-    # print "finished repahsing"
-    # print "------------------"
-    # exit()
+    print "Rephased from {} to {} ".format(original, positions)
 
 # skip over the variable length block comments
 for file in filehandles:
@@ -92,6 +69,7 @@ for file in filehandles:
 done = False
 
 try :
+
     # get the next line from all the files
     for lines in itertools.izip(*filehandles):
 
@@ -149,7 +127,7 @@ try :
             if len(alleles) == 1:
                 raise HomozygousException(alleles)
 
-            print alleles
+            print freqs
 
             # TODO what about the previous and subsequent positions
 
