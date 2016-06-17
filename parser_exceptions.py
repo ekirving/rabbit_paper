@@ -28,6 +28,12 @@ class HeterozygousException(Exception):
     """
     pass
 
+class HomozygousException(Exception):
+    """
+    Detected a site which is homozygous
+    """
+    pass
+
 
 
 
