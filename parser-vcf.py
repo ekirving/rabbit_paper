@@ -42,6 +42,9 @@ def rephase_files(lines, filehandles):
     # assume no consensus
     consensus = False
 
+
+    skipped = []
+
     while not consensus:
         # get the maximum position of the current lines
         maxpos = max(positions)
@@ -49,7 +52,9 @@ def rephase_files(lines, filehandles):
         for i, unused in enumerate(lines):
             # check each file to see which ones are behind
             while int(lines[i][POS]) < maxpos:
-                # advance one line at a time
+                # keep track of skipped sites
+                skipped.append(lines[i][POS])
+                # advance to the next line
                 lines[i] = filehandles[i].next().split()
 
         # get the unique set of positions
@@ -59,14 +64,15 @@ def rephase_files(lines, filehandles):
         if len(positions) == 1:
             consensus = True
 
-    print "Rephased from {} to {} ".format(original, positions)
+    print "Rephased from {} to {}, skipping {} sites ".format(original, positions, len(set(skipped)))
 
 # skip over the variable length block comments
 for file in filehandles:
     while file.readline().startswith("##"):
         pass
 
-done = False
+# TODO remove when done testing
+count = 0
 
 try :
 
@@ -99,7 +105,7 @@ try :
 
             # dictionary for counting observations
             freqs = {}
-            freqs['wild'] = defaultdict(int)
+            freqs['wild'] = defaultdict(int) # default all entries to integers
             freqs['doms'] = defaultdict(int)
 
             for idx, line in enumerate(lines[1:]):
@@ -131,13 +137,19 @@ try :
 
             # TODO what about the previous and subsequent positions
 
-
+            # TODO remove when done testing
+            count += 1
+            if (count > 100):
+                break
 
         except (InDelException, PolyallelicException, HeterozygousException, HomozygousException) as e:
-                # skip all sites containing indels, polyallelic sites in ingroup samples, and heterozygous sites in the
-                # outgroup, or homozygous across the while populations
-                pass
+                # skip all sites containing indels, polyallelic sites in ingroup samples, heterozygous sites in the outgroup,
+                # or homozygous sites across the all populations
                 # print 'Skipping site {} {} because of {} - {}'.format(outgroup[CHROM], outgroup[POS], type(e).__name__, e)
+                pass
 
 except StopIteration as e:
-    print 'Finished!'
+    print 'Reached the end of one of the files {}'.format(e)
+    pass
+
+print 'Finished!'
