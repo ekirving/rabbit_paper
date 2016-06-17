@@ -14,10 +14,8 @@ GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
 # the list of sample codes
-# SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320',
-#            'SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
-
-SAMPLES = ['SRR997317','SRR997321', 'SRR997322']
+SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320',
+           'SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
 
 # the URLs for the paried end fastq files
 pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
@@ -416,10 +414,9 @@ class Convert_Cram_Bcf(luigi.Task):
     def run(self):
         bcf = run_cmd(["samtools1.3",
                        "mpileup",
-                       "-g",                              # call genotypes
-                       # "-o", "bcf/"+self.sample+".bcf",   # output location
-                       "-f", "fasta/"+self.genome+".fa",  # reference genome
-                       "cram/"+self.sample+".cram"])      # input CRAM file
+                       "-g",                             # call genotypes
+                       "-f", "fasta/"+self.genome+".fa", # reference genome
+                       "cram/"+self.sample+".cram"])     # input CRAM file
 
         # TODO can't use output pipe because it fails with error "IOError: [Errno 22] Invalid argument"
 
@@ -445,11 +442,9 @@ class Bcftools_Call(luigi.Task):
     def run(self):
         vcf = run_cmd(["bcftools",
                         "call",
-                        # "-v",                              # output variant sites only
-                        "-c",                              # consensus caller
-                        "-O", "v",                         # output uncompressed VCF
-                        # "-o", "vcf/"+self.sample+".vcf", # output location
-                        "bcf/"+self.sample+".bcf"])        # input BCF file
+                        "-c",                       # consensus caller
+                        "-O", "v",                  # output uncompressed VCF
+                        "bcf/"+self.sample+".bcf"]) # input BCF file
 
         # save the VCF file
         with self.output().open('w') as fout:
