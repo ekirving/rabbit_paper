@@ -121,12 +121,12 @@ class PairedEnd_Fastq(luigi.Task):
     def requires(self):
         global pair1_url, pair2_url
         # download the gzipped fastq files
-        return [Curl_Download(pair1_url.format(sample=self.sample), "fastq/"+self.sample+"_1.fastq.gz"),
-                Curl_Download(pair2_url.format(sample=self.sample), "fastq/"+self.sample+"_2.fastq.gz")]
+        return [Curl_Download(pair1_url.format(sample=self.sample), "fastq/" + self.sample + "_1.fastq.gz"),
+                Curl_Download(pair2_url.format(sample=self.sample), "fastq/" + self.sample + "_2.fastq.gz")]
 
     def output(self):
-        return [luigi.LocalTarget("fastq/"+self.sample+"_1.fastq"),
-                luigi.LocalTarget("fastq/"+self.sample+"_2.fastq")]
+        return [luigi.LocalTarget("fastq/" + self.sample + "_1.fastq"),
+                luigi.LocalTarget("fastq/" + self.sample + "_2.fastq")]
 
     def run(self):
         # fetch the downloaded files
@@ -152,10 +152,10 @@ class Genome_Fasta(luigi.Task):
     def requires(self):
         global GENOME_URL
         # download the gzipped fasta file of the reference genome
-        return Curl_Download(GENOME_URL, "fasta/"+self.genome+".fa.gz")
+        return Curl_Download(GENOME_URL, "fasta/" + self.genome + ".fa.gz")
 
     def output(self):
-        return luigi.LocalTarget("fasta/"+self.genome+".fa")
+        return luigi.LocalTarget("fasta/" + self.genome + ".fa")
 
     def run(self):
         # unzip the file
@@ -176,12 +176,12 @@ class Samtools_Fasta_Index(luigi.Task):
         return Genome_Fasta(self.genome)
 
     def output(self):
-        return luigi.LocalTarget("fasta/"+self.genome+".fa")
+        return luigi.LocalTarget("fasta/" + self.genome + ".fa")
 
     def run(self):
         run_cmd(["samtools1.3",
                  "faidx",                     # index needed for CRAM files
-                 "fasta/"+self.genome+".fa"]) # input file
+                 "fasta/" + self.genome + ".fa"]) # input file
 
         print "====== Built the samtools FASTA index ======"
 
@@ -196,13 +196,13 @@ class Bwa_Index(luigi.Task):
 
     def output(self):
         extensions = ['amb', 'ann', 'bwt', 'pac', 'sa']
-        return [luigi.LocalTarget("fasta/"+self.genome+".fa."+ext) for ext in extensions]
+        return [luigi.LocalTarget("fasta/" + self.genome + ".fa." + ext) for ext in extensions]
 
     def run(self):
         run_cmd(["bwa",
                  "index",                     # index needed for bwa alignment
                  "-a", "bwtsw",               # algorithm suitable for mammals
-                 "fasta/"+self.genome+".fa"]) # input file
+                 "fasta/" + self.genome + ".fa"]) # input file
 
         print "====== Built the BWA index ======"
 
@@ -218,7 +218,7 @@ class Bwa_Mem(luigi.Task):
                 Bwa_Index(self.genome)]
 
     def output(self):
-        return luigi.LocalTarget("sam/"+self.sample+".sam")
+        return luigi.LocalTarget("sam/" + self.sample + ".sam")
 
     def run(self):
         # TODO add the sample name to the readgroup header
@@ -226,12 +226,12 @@ class Bwa_Mem(luigi.Task):
 
         # perform the alignment
         sam = run_cmd(["bwa",
-                       "mem",                            # align using the mem algorithm
-                       "-t", MAX_CPU_CORES,              # number of cores
-                       "-R", readgroup,                  # readgroup metadata
-                       "fasta/"+self.genome+".fa",       # reference genome
-                       "fastq/"+self.sample+"_1.fastq",  # pair 1
-                       "fastq/"+self.sample+"_2.fastq"]) # pair 2
+                       "mem",                                # align using the mem algorithm
+                       "-t", MAX_CPU_CORES,                  # number of cores
+                       "-R", readgroup,                      # readgroup metadata
+                       "fasta/" + self.genome + ".fa",       # reference genome
+                       "fastq/" + self.sample + "_1.fastq",  # pair 1
+                       "fastq/" + self.sample + "_2.fastq"]) # pair 2
 
         # save the SAM file
         with self.output().open('w') as fout:
@@ -250,16 +250,16 @@ class Convert_Sam_Sorted_Bam(luigi.Task):
         return Bwa_Mem(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("bam/"+self.sample+".bam")
+        return luigi.LocalTarget("bam/" + self.sample + ".bam")
 
     def run(self):
         # perform the SAM -> BAM conversion and sorting
         bam = run_cmd(["samtools1.3",
-                       "sort",                     # sort the reads
-                       "-l", DEFAULT_COMPRESSION,  # level of compression
-                       "-@", MAX_CPU_CORES,        # number of cores
-                       "-O", "bam",                # output a BAM file
-                       "sam/"+self.sample+".sam"]) # input a SAM file
+                       "sort",                         # sort the reads
+                       "-l", DEFAULT_COMPRESSION,      # level of compression
+                       "-@", MAX_CPU_CORES,            # number of cores
+                       "-O", "bam",                    # output a BAM file
+                       "sam/" + self.sample + ".sam"]) # input a SAM file
 
         # save the BAM file
         with self.output().open('w') as fout:
@@ -283,8 +283,8 @@ class Index_Bam(luigi.Task):
     def run(self):
         run_cmd(["samtools1.3",
                  "index",
-                 "-b",                       # create a BAI index
-                 "bam/"+self.sample+".bam"]) # file to index
+                 "-b",                           # create a BAI index
+                 "bam/" + self.sample + ".bam"]) # file to index
 
         print "==== Indexing CRAM ===="
 
@@ -300,16 +300,16 @@ class Convert_Bam_Cram(luigi.Task):
                 Samtools_Fasta_Index(self.genome)]
 
     def output(self):
-        return luigi.LocalTarget("cram/"+self.sample+".cram")
+        return luigi.LocalTarget("cram/" + self.sample + ".cram")
 
     def run(self):
         # perform the BAM -> CRAM conversion
         cram = run_cmd(["samtools1.3",
                         "view",
-                        "-@", MAX_CPU_CORES,              # number of cores
-                        "-C",                             # output a CRAM file
-                        "-T", "fasta/"+self.genome+".fa", # reference genome
-                        "bam/"+self.sample+".bam"])       # input BAM file
+                        "-@", MAX_CPU_CORES,                  # number of cores
+                        "-C",                                 # output a CRAM file
+                        "-T", "fasta/" + self.genome + ".fa", # reference genome
+                        "bam/" + self.sample + ".bam"])       # input BAM file
 
         # save the CRAM file
         with self.output().open('w') as fout:
@@ -348,16 +348,16 @@ class Samtools_MPileup(luigi.Task):
         return Index_Cram(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("pileup/"+self.sample+".pileup")
+        return luigi.LocalTarget("pileup/" + self.sample + ".pileup")
 
     def run(self):
         pileup = run_cmd(["samtools1.3",
-                          "mpileup",                             # output a pileup file
-                          "-o", "pileup/"+self.sample+".pileup", # output location
-                          "-f", "fasta/"+self.genome+".fa",      # reference genome
-                          "cram/"+self.sample+".cram"])          # input CRAM file
+                          "mpileup",
+                          "-o",  self.output().path,            # output location
+                          "-f", "fasta/" + self.genome + ".fa", # reference genome
+                          "cram/" + self.sample + ".cram"])     # input CRAM file
 
-        # TODO can't use output pipe because it fails with error "IOError: [Errno 22] Invalid argument"
+        # TODO can't use output pipe because multithreading casues server to crash due while buffering hundreds of GB in RAM
 
         # save the pileup file
         # with self.output().open('w') as fout:
@@ -378,7 +378,7 @@ class Coverage_Stats(luigi.Task):
         return Samtools_MPileup(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("pileup/"+self.sample+".pileup.stats")
+        return luigi.LocalTarget("pileup/" + self.sample + ".pileup.stats")
 
     def run(self):
 
@@ -409,20 +409,21 @@ class Convert_Cram_Bcf(luigi.Task):
         return Index_Cram(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("bcf/"+self.sample+".bcf")
+        return luigi.LocalTarget("bcf/" + self.sample + ".bcf")
 
     def run(self):
         bcf = run_cmd(["samtools1.3",
                        "mpileup",
-                       "-g",                             # call genotypes
-                       "-f", "fasta/"+self.genome+".fa", # reference genome
-                       "cram/"+self.sample+".cram"])     # input CRAM file
+                       "-g",                                 # call genotypes
+                       "-o", self.output().path,             # output location
+                       "-f", "fasta/" + self.genome + ".fa", # reference genome
+                       "cram/" + self.sample + ".cram"])     # input CRAM file
 
-        # TODO can't use output pipe because it fails with error "IOError: [Errno 22] Invalid argument"
+        # TODO can't use output pipe because multithreading casues server to crash due while buffering hundreds of GB in RAM
 
-        # save the pileup file
-        with self.output().open('w') as fout:
-            fout.write(bcf)
+        # # save the BCF file
+        # with self.output().open('w') as fout:
+        #     fout.write(bcf)
 
         print "===== Converted CRAM file to pileup ======="
 
@@ -437,18 +438,21 @@ class Bcftools_Call(luigi.Task):
         return Convert_Cram_Bcf(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("vcf/"+self.sample+".vcf")
+        return luigi.LocalTarget("vcf/" + self.sample + ".vcf")
 
     def run(self):
         vcf = run_cmd(["bcftools",
                         "call",
-                        "-c",                       # consensus caller
-                        "-O", "v",                  # output uncompressed VCF
-                        "bcf/"+self.sample+".bcf"]) # input BCF file
+                        "-c",                           # consensus caller
+                        "-o", self.output().path,       # output location
+                        "-O", "v",                      # output uncompressed VCF
+                        "bcf/" + self.sample + ".bcf"]) # input BCF file
 
-        # save the VCF file
-        with self.output().open('w') as fout:
-            fout.write(vcf)
+        # TODO can't use output pipe because multithreading casues server to crash due while buffering hundreds of GB in RAM
+
+        # # save the VCF file
+        # with self.output().open('w') as fout:
+        #     fout.write(vcf)
 
         print "===== Called variant sites ======="
 
