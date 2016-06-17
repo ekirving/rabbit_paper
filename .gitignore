@@ -3,3 +3,7 @@
 
 # output logging from nohup command
 nohup.out
+
+# temp files
+temp.py
+stub.py
