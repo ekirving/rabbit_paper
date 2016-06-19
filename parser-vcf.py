@@ -189,13 +189,15 @@ try :
             snpcount += 1
 
         except (InDelException, PolyallelicException, HeterozygousException, HomozygousException) as e:
-                # skip all sites containing indels, polyallelic sites in ingroup samples, heterozygous sites in the outgroup,
-                # or homozygous sites across all the populations
-                logging.debug('Skipping site chr{} pos {} because of {} - {}'.format(outgroup[CHROM], outgroup[POS], type(e).__name__, e))
+                # skip all sites containing indels, polyallelic sites in ingroup samples, heterozygous sites in the
+                # outgroup, or homozygous sites across all the populations
+                logging.debug('Skipping site chr{} {} because of a {} - {}'.format(outgroup[CHROM],
+                                                                                   outgroup[POS],
+                                                                                   type(e).__name__,
+                                                                                   e))
 
 except StopIteration as e:
     logging.debug('Reached the end of one of the files {}'.format(e))
     pass
 
-# TODO remove me
-print 'Finished! Found {} suitable SNP sites'.format(snpcount)
+logging.debug('Finished! Found {} suitable SNP sites'.format(snpcount))

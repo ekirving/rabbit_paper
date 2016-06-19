@@ -7,3 +7,6 @@ nohup.out
 # temp files
 temp.py
 stub.py
+
+# log file
+parse-vcf.log
