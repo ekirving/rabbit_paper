@@ -17,11 +17,13 @@ INFO = 7
 FORMAT = 8
 GENOTYPE = 9
 
+
 class InDelException(Exception):
     """
     Detected a site which contains an insertion or deletion
     """
     pass
+
 
 class PolyallelicException(Exception):
     """
@@ -29,17 +31,20 @@ class PolyallelicException(Exception):
     """
     pass
 
+
 class HeterozygousException(Exception):
     """
     Detected a site which is heterozygous
     """
     pass
 
+
 class HomozygousException(Exception):
     """
     Detected a site which is homozygous
     """
     pass
+
 
 def rephase_files(lines, filehandles):
     """
@@ -80,11 +85,13 @@ def rephase_files(lines, filehandles):
 
     logging.debug("Rephased from {} to {}, skipping {} sites ".format(original, positions, len(set(skipped))))
 
+
 def generate_frequency_spectrum(samples, wild_threshold):
     """
     Generates the site frequency spectrum for a given set of samples
 
-    :param samples:
+    :param samples: List of sample accession codes
+    :param wild_threshold: The index position of the last wild sample (used for resolving group membership)
     :return:
     """
 
@@ -92,8 +99,8 @@ def generate_frequency_spectrum(samples, wild_threshold):
     filehandles = [open("vcf/{name}.vcf".format(name=sample), 'r') for sample in samples]
 
     # skip over the block comments (which are variable length)
-    for file in filehandles:
-        while file.readline().startswith("##"):
+    for fin in filehandles:
+        while fin.readline().startswith("##"):
             pass
 
     # keep count of SNP sites
@@ -102,7 +109,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
     # output the header row
     output = 'Rabbit\tHare\tAllele1\tWLD\tDOM\tAllele2\tWLD\tDOM\tGene\tPosition\n'
 
-    try :
+    try:
 
         # get the next line from all the files
         for lines in itertools.izip(*filehandles):
@@ -121,12 +128,12 @@ def generate_frequency_spectrum(samples, wild_threshold):
                 outgroup = lines[0]
 
                 # get the chromosome number and position
-                chr = outgroup[CHROM]
+                chrm = outgroup[CHROM]
                 pos = outgroup[POS]
 
                 # skip all sites with indels
                 if 'INDEL' in outgroup[INFO]:
-                    raise InDelException(chr, pos, outgroup[INFO])
+                    raise InDelException(chrm, pos, outgroup[INFO])
 
                 # get the reference and outgroup alleles
                 ref_allele = outgroup[REF]
@@ -137,10 +144,10 @@ def generate_frequency_spectrum(samples, wild_threshold):
 
                 # skip het sites in the outgroup
                 if out_genotype == '0/1':
-                    raise HeterozygousException(chr, pos, outgroup[GENOTYPE])
+                    raise HeterozygousException(chrm, pos, outgroup[GENOTYPE])
 
                 # keep track of all the observed alleles at this site
-                all_alleles = set([ref_allele, out_allele])
+                all_alleles = {ref_allele, out_allele}
 
                 # dictionary for counting observations
                 frequencies = {}
@@ -150,7 +157,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
 
                     # skip all sites with indels
                     if 'INDEL' in line[INFO]:
-                        raise InDelException(chr, pos, line[REF])
+                        raise InDelException(chrm, pos, line[REF])
 
                     # get the alt allele for this sample
                     alt_allele = line[ALT].replace('.', ref_allele)
@@ -160,18 +167,18 @@ def generate_frequency_spectrum(samples, wild_threshold):
 
                     # resolve the genotype
                     if genotype == '0/0':
-                        sample_alleles = [ref_allele, ref_allele] # 0/0 - the sample is homozygous reference
+                        sample_alleles = [ref_allele, ref_allele]  # 0/0 - the sample is homozygous reference
                     elif genotype == '0/1':
-                        sample_alleles = [ref_allele, alt_allele] # 0/1 - the sample is heterozygous
+                        sample_alleles = [ref_allele, alt_allele]  # 0/1 - the sample is heterozygous
                     elif genotype == '1/1':
-                        sample_alleles = [alt_allele, alt_allele] # 1/1 - the sample is homozygous alternate
+                        sample_alleles = [alt_allele, alt_allele]  # 1/1 - the sample is homozygous alternate
 
                     # add them to the all alleles set
                     all_alleles |= set(sample_alleles)
 
                     # skip sites with more than two alleles observed across all samples
                     if len(all_alleles) > 2:
-                        raise PolyallelicException(chr, pos, all_alleles)
+                        raise PolyallelicException(chrm, pos, all_alleles)
 
                     # use the index threshold to determine which group this sample belongs to
                     group = 'wild' if idx < wild_threshold else 'doms'
@@ -180,19 +187,19 @@ def generate_frequency_spectrum(samples, wild_threshold):
                     for allele in sample_alleles:
                         # initialise the counter, if necessary
                         if allele not in frequencies:
-                            frequencies[allele] = {'wild': 0, 'doms':0}
+                            frequencies[allele] = {'wild': 0, 'doms': 0}
                         # increment the counter
                         frequencies[allele][group] += 1
 
                 if len(all_alleles) == 1:
                     # skip homozygous sites, because there is nothing to coalesce
-                    raise HomozygousException(chr, pos, all_alleles)
+                    raise HomozygousException(chrm, pos, all_alleles)
 
                 if len(frequencies) == 1:
                     # deal with fixed allele sites by initilising the missing allele to 0
                     for allele in all_alleles:
                         if allele not in frequencies:
-                            frequencies[allele] = {'wild': 0, 'doms':0}
+                            frequencies[allele] = {'wild': 0, 'doms': 0}
 
                 # TODO what about the previous and subsequent positions
 
@@ -208,19 +215,19 @@ def generate_frequency_spectrum(samples, wild_threshold):
                                                                 doms=count['doms'])
 
                 # add the chromosome name and position
-                output += 'chr{chr}\t{pos}\n'.format(chr=chr,
-                                                     pos=pos)
+                output += 'chr{chrm}\t{pos}\n'.format(chrm=chrm,
+                                                      pos=pos)
 
                 # increment the SNP count
                 snpcount += 1
 
             except (InDelException, PolyallelicException, HeterozygousException, HomozygousException) as e:
-                    # skip all sites containing indels, polyallelic sites in ingroup samples, heterozygous sites in the
-                    # outgroup, or homozygous sites across all the populations
-                    logging.debug('Skipping site chr{} {} because of a {} - {}'.format(outgroup[CHROM],
-                                                                                       outgroup[POS],
-                                                                                       type(e).__name__,
-                                                                                       e))
+                # skip all sites containing indels, polyallelic sites in ingroup samples, heterozygous sites in the
+                # outgroup, or homozygous sites across all the populations
+                logging.debug('Skipping site chr{} {} because of a {} - {}'.format(outgroup[CHROM],
+                                                                                   outgroup[POS],
+                                                                                   type(e).__name__,
+                                                                                   e))
 
     except StopIteration as e:
         logging.debug('Reached the end of one of the files {}'.format(e))

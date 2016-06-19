@@ -1,5 +1,4 @@
 import luigi
-import logging
 import multiprocessing
 import numpy
 import os
