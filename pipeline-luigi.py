@@ -13,13 +13,35 @@ import json
 GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
-# the list of sample codes
-SAMPLES = ['SRR997303','SRR997304','SRR997305','SRR997316','SRR997317','SRR997318','SRR997319','SRR997320',
-           'SRR997321','SRR997322','SRR997323','SRR997324','SRR997325','SRR997326','SRR997327']
+SAMPLES = {}
+
+# outgroup (must be first element in dictionary)
+SAMPLES['SRR997325']='BH23'   # Belgian hare
+
+# wild population, w/ accession codes and sample ID
+SAMPLES['SRR997319']='Avey36' # Aveyron
+SAMPLES['SRR997317']='Fos6'   # Fos-su-Mer
+SAMPLES['SRR997304']='Fos2'   # Fos-su-Mer
+SAMPLES['SRR997303']='Her65'  # Herauld
+SAMPLES['SRR997318']='Lan7'   # Lancon
+SAMPLES['SRR997316']='Lan8'   # Lancon
+SAMPLES['SRR997305']='Vau73'  # Vaucluse
+
+# record the index of the last wild sample
+WILD_THRESHOLD = len(SAMPLES)-1
+
+# domestic population, w/ accession codes and sample ID
+SAMPLES['SRR997320']='FA801'   # Champagne d'argent
+SAMPLES['SRR997321']='AC100'   # Angora
+SAMPLES['SRR997327']='A93015'  # Angora
+SAMPLES['SRR997323']='FL920'   # French lop
+SAMPLES['SRR997326']='FG3'     # Flemish giant
+SAMPLES['SRR997324']='FG4'     # Flemish giant
+SAMPLES['SRR997322']='REX12'   # Rex
 
 # the URLs for the paried end fastq files
-pair1_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
-pair2_url = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz"
+PAIR1_URL = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
+PAIR2_URL = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz"
 
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
@@ -119,10 +141,10 @@ class PairedEnd_Fastq(luigi.Task):
     sample = luigi.Parameter()
 
     def requires(self):
-        global pair1_url, pair2_url
+        global PAIR1_URL, PAIR2_URL
         # download the gzipped fastq files
-        return [Curl_Download(pair1_url.format(sample=self.sample), "fastq/" + self.sample + "_1.fastq.gz"),
-                Curl_Download(pair2_url.format(sample=self.sample), "fastq/" + self.sample + "_2.fastq.gz")]
+        return [Curl_Download(PAIR1_URL.format(sample=self.sample), "fastq/" + self.sample + "_1.fastq.gz"),
+                Curl_Download(PAIR2_URL.format(sample=self.sample), "fastq/" + self.sample + "_2.fastq.gz")]
 
     def output(self):
         return [luigi.LocalTarget("fastq/" + self.sample + "_1.fastq"),
@@ -221,8 +243,9 @@ class Bwa_Mem(luigi.Task):
         return luigi.LocalTarget("sam/" + self.sample + ".sam")
 
     def run(self):
-        # TODO add the sample name to the readgroup header
-        readgroup= "@RG\\tID:{sample}\\tSM:{sample}".format(sample=self.sample)
+        global SAMPLES
+        readgroup= "@RG\\tID:{id}\\tSM:{sample}".format(id=SAMPLES[self.sample],
+                                                        sample=self.sample)
 
         # perform the alignment
         sam = run_cmd(["bwa",
@@ -357,7 +380,7 @@ class Samtools_MPileup(luigi.Task):
                           "-f", "fasta/" + self.genome + ".fa", # reference genome
                           "cram/" + self.sample + ".cram"])     # input CRAM file
 
-        # TODO can't use output pipe because multithreading casues server to crash due while buffering hundreds of GB in RAM
+        # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
 
         # save the pileup file
         # with self.output().open('w') as fout:
@@ -419,7 +442,7 @@ class Convert_Cram_Bcf(luigi.Task):
                        "-f", "fasta/" + self.genome + ".fa", # reference genome
                        "cram/" + self.sample + ".cram"])     # input CRAM file
 
-        # TODO can't use output pipe because multithreading casues server to crash due while buffering hundreds of GB in RAM
+        # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
 
         # # save the BCF file
         # with self.output().open('w') as fout:
@@ -448,7 +471,7 @@ class Bcftools_Call(luigi.Task):
                         "-O", "v",                      # output uncompressed VCF
                         "bcf/" + self.sample + ".bcf"]) # input BCF file
 
-        # TODO can't use output pipe because multithreading casues server to crash due while buffering hundreds of GB in RAM
+        # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
 
         # # save the VCF file
         # with self.output().open('w') as fout:
@@ -456,13 +479,37 @@ class Bcftools_Call(luigi.Task):
 
         print "===== Called variant sites ======="
 
+class Site_Frequency_Spectrum(luigi.Task):
+    """
+    Produce the site frequency spectrum, based on genotype calls from bcftools
+    """
+    samples = luigi.ListParameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        for sample in self.samples:
+            yield Bcftools_Call(sample, self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("sfs/" + self.genome + ".data")
+
+    def run(self):
+
+        
+
+        # save the pileup file
+        with self.output().open('w') as fout:
+            fout.write(stdout)
+
+        print "=====  ======="
+
 class Custom_Genome_Pipeline(luigi.Task):
     """
     Run all the samples through the pipeline
     """
+
     def requires(self):
-        for sample in SAMPLES:
-            yield Bcftools_Call(sample, GENOME)
+        return Site_Frequency_Spectrum(SAMPLES, GENOME)
 
 if __name__=='__main__':
     luigi.run()
