@@ -1,11 +1,13 @@
-from subprocess import check_output
-import subprocess
 import luigi
-import os
-import random
+import logging
 import multiprocessing
 import numpy
+import os
 import json
+import subprocess
+
+# import the custom vcf parser
+from vcfparser import *
 
 # Based on example pipleine from http://coderscrowd.com/app/public/codes/view/229
 
@@ -15,7 +17,7 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 
 SAMPLES = {}
 
-# outgroup (must be first element in dictionary)
+# the outgroup (must be first element in the dictionary)
 SAMPLES['SRR997325']='BH23'   # Belgian hare
 
 # wild population, w/ accession codes and sample ID
@@ -50,8 +52,6 @@ DEFAULT_COMPRESSION = 6
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
-# consume all the available cores
-# MAX_CPU_CORES = multiprocessing.cpu_count()
 
 def run_cmd(cmd):
     """
@@ -491,17 +491,21 @@ class Site_Frequency_Spectrum(luigi.Task):
             yield Bcftools_Call(sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("sfs/" + self.genome + ".data")
+        return luigi.LocalTarget("fsdata/" + self.genome + ".data")
 
     def run(self):
 
-        
+        # log everything to file
+        logging.basicConfig(filename="fsdata/" + self.genome + ".log", level=logging.DEBUG)
 
-        # save the pileup file
+        # generate the frequency spectrum
+        fsdata = generate_frequency_spectrum(self.samples, WILD_THRESHOLD)
+
+        # save the fsdata file
         with self.output().open('w') as fout:
-            fout.write(stdout)
+            fout.write(fsdata)
 
-        print "=====  ======="
+        print "===== Generated the site frequency spectrum  ======="
 
 class Custom_Genome_Pipeline(luigi.Task):
     """
