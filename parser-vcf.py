@@ -43,7 +43,7 @@ ALT = 4
 QUAL = 5
 
 # open all files for reading
-filehandles = [open("vcf/{name}.vcf.short".format(name=sample), 'r') for sample in SAMPLES]
+filehandles = [open("vcf/{name}.vcf".format(name=sample), 'r') for sample in SAMPLES]
 
 def rephase_files(lines, filehandles):
     """
