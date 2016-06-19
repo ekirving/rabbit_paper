@@ -22,8 +22,8 @@ SAMPLES['SRR997318']='Lan7'   # Lancon
 SAMPLES['SRR997316']='Lan8'   # Lancon
 SAMPLES['SRR997305']='Vau73'  # Vaucluse
 
-# record the index of the first wild sample
-THRESHOLD = len(SAMPLES)-1
+# record the index of the last wild sample
+WILD_THRESHOLD = len(SAMPLES)-1
 
 # domestic population, w/ accession codes and sample ID
 SAMPLES['SRR997320']='FA801'   # Champagne d'argent
@@ -41,9 +41,13 @@ ID = 2
 REF = 3
 ALT = 4
 QUAL = 5
+FILTER = 6
+INFO = 7
+FORMAT = 8
+GENOTYPE = 9
 
 # open all files for reading
-filehandles = [open("vcf/{name}.vcf".format(name=sample), 'r') for sample in SAMPLES]
+filehandles = [open("vcf/{name}.vcf.short".format(name=sample), 'r') for sample in SAMPLES]
 
 def rephase_files(lines, filehandles):
     """
@@ -105,7 +109,7 @@ try :
             lines = [line.split() for line in lines]
 
             # rephase the files, if not all the sequence positions match
-            if (len(set(line[POS] for line in lines)) != 1):
+            if len(set(line[POS] for line in lines)) != 1:
                 rephase_files(lines, filehandles)
 
             # TODO drop sites with coverage lower than 1st quartile or higher than 3rd quartile
@@ -113,55 +117,77 @@ try :
             # get the outgroup
             outgroup = lines[0]
 
-            # skip het sites in the outgroup
-            if (len(outgroup[ALT]) > 1):
-                raise HeterozygousException(outgroup[ALT])
+            # get the chromosome number and position
+            chr = outgroup[CHROM]
+            pos = outgroup[POS]
 
-            # get the reference and outgroup alleles, and chom and position
+            # skip all sites with indels
+            if 'INDEL' in outgroup[INFO]:
+                raise InDelException(chr, pos, outgroup[INFO])
+
+            # get the reference and outgroup alleles
             ref_allele = outgroup[REF]
             out_allele = outgroup[ALT].replace('.', ref_allele)
-            chrom = outgroup[CHROM]
-            position = outgroup[POS]
+
+            # get the genotype of the outgroup
+            out_genotype = outgroup[GENOTYPE].split(':')[0]
+
+            # skip het sites in the outgroup
+            if out_genotype == '0/1':
+                raise HeterozygousException(chr, pos, outgroup[GENOTYPE])
 
             # keep track of all the observed alleles at this site
-            alleles = set([ref_allele, out_allele])
+            all_alleles = set([ref_allele, out_allele])
 
             # dictionary for counting observations
-            frequencies = defaultdict(dict)
+            frequencies = {}
 
+            # process all the samples (omitting the outgroup)
             for idx, line in enumerate(lines[1:]):
-                # skip sites with indels
-                if (len(line[REF]) != 1):
-                    raise InDelException(line[REF])
 
-                # get the alleles observed in this individual
-                observations = set(line[ALT].replace('.', line[REF]))
+                # skip all sites with indels
+                if 'INDEL' in line[INFO]:
+                    raise InDelException(chr, pos, line[REF])
 
-                # add them to the alleles set
-                alleles |= observations
+                # get the alt allele for this sample
+                alt_allele = line[ALT].replace('.', ref_allele)
+
+                # get the genotype of the sample
+                genotype = line[GENOTYPE].split(':')[0]
+
+                # resolve the genotype
+                if genotype == '0/0':
+                    sample_alleles = [ref_allele, ref_allele] # 0/0 - the sample is homozygous reference
+                elif genotype == '0/1':
+                    sample_alleles = [ref_allele, alt_allele] # 0/1 - the sample is heterozygous
+                elif genotype == '1/1':
+                    sample_alleles = [alt_allele, alt_allele] # 1/1 - the sample is homozygous alternate
+
+                # add them to the all alleles set
+                all_alleles |= set(sample_alleles)
 
                 # skip sites with more than two alleles observed across all samples
-                if (len(alleles) > 2):
-                    raise PolyallelicException(alleles)
+                if len(all_alleles) > 2:
+                    raise PolyallelicException(chr, pos, all_alleles)
 
-                # use the list index to determine which group does this sample belong to
-                group = 'wild' if idx >= THRESHOLD  else 'doms'
+                # use the index threshold to determine which group this sample belongs to
+                group = 'wild' if idx < WILD_THRESHOLD else 'doms'
 
                 # count the observations of each allele for each group
-                for observation in observations:
-                    if observation not in frequencies:
-                        # initialise the counter
-                        frequencies[observation] = {'wild': 0, 'doms':0}
-
+                for allele in sample_alleles:
+                    # initialise the counter, if necessary
+                    if allele not in frequencies:
+                        frequencies[allele] = {'wild': 0, 'doms':0}
                     # increment the counter
-                    frequencies[observation][group] += 1
+                    frequencies[allele][group] += 1
 
-            if len(alleles) == 1:
-                raise HomozygousException(alleles)
+            if len(all_alleles) == 1:
+                # skip homozygous sites, because there is nothing to coalesce
+                raise HomozygousException(chr, pos, all_alleles)
 
             if len(frequencies) == 1:
-                # deal with fixed sites by initilising the missing allele to 0
-                for allele in alleles:
+                # deal with fixed allele sites by initilising the missing allele to 0
+                for allele in all_alleles:
                     if allele not in frequencies:
                         frequencies[allele] = {'wild': 0, 'doms':0}
 
@@ -174,13 +200,13 @@ try :
 
             for allele, count in frequencies.iteritems():
                 # output the allele counts
-                output += '{allele}\t{wild}\t{doms}\t'.format(allele=allele,
-                                                              wild=count['wild'],
-                                                              doms=count['doms'])
+                output += '{alle}\t{wild}\t{doms}\t'.format(alle=allele,
+                                                            wild=count['wild'],
+                                                            doms=count['doms'])
 
             # add the chromosome name and position
-            output +=  'chr{chr}\t{pos}'.format(chr=chrom,
-                                                  pos=position)
+            output += 'chr{chr}\t{pos}'.format(chr=chr,
+                                               pos=pos)
 
             # print the output
             print output
