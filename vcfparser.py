@@ -108,6 +108,14 @@ def generate_frequency_spectrum(samples, wild_threshold):
     # keep count of SNP sites
     snpcount = 0
 
+    # initialise
+    ref_allele, out_allele = None, None
+
+    chrm, pos = 0, 0
+
+    # initialise look-behind variables
+    prev_ref_allele, prev_out_allele, prev_chrm, prev_pos = '-', '-', None, None
+
     # output the header row
     output = 'Rabbit\tHare\tAllele1\tWLD\tDOM\tAllele2\tWLD\tDOM\tGene\tPosition\n'
 
@@ -207,8 +215,10 @@ def generate_frequency_spectrum(samples, wild_threshold):
 
                 # start composing the output line...
                 # Ref | Out | Allele1 | WILD | DOMS | Allele2 | WILD | DOMS | Gene | Position
-                output += '-{ref}-\t-{out}-\t'.format(ref=ref_allele,
-                                                      out=out_allele)
+                output += '{pref}{ref}-\t{pout}{out}-\t'.format(pref=prev_ref_allele,
+                                                                ref=ref_allele,
+                                                                pout=prev_out_allele,
+                                                                out=out_allele)
 
                 for allele, count in frequencies.iteritems():
                     # output the allele counts
@@ -231,6 +241,13 @@ def generate_frequency_spectrum(samples, wild_threshold):
                                                                                    type(e).__name__,
                                                                                    e))
 
+            # update the look-behind variables if the positions are sequential,
+            # otherwise we don't know what the left flanking allele is
+            prev_ref_allele, prev_out_allele = (ref_allele, out_allele) if (prev_chrm, prev_pos) == (chrm, pos - 1) else ('-', '-')
+
+            # remember the previous positions
+            prev_chrm, prev_pos = chrm, pos
+
     except StopIteration as e:
         logging.debug('Reached the end of one of the files {}'.format(e))
         pass
@@ -238,3 +255,34 @@ def generate_frequency_spectrum(samples, wild_threshold):
     logging.debug('Finished! Found {} suitable SNP sites'.format(snpcount))
 
     return output
+
+if __name__=='__main__':
+
+    # TODO remove when done testing
+    SAMPLES = {}
+
+    # the outgroup (must be first element in the dictionary)
+    SAMPLES['SRR997325'] = 'BH23'  # Belgian hare
+
+    # wild population, w/ accession codes and sample ID
+    SAMPLES['SRR997319'] = 'Avey36'  # Aveyron
+    SAMPLES['SRR997317'] = 'Fos6'  # Fos-su-Mer
+    SAMPLES['SRR997304'] = 'Fos2'  # Fos-su-Mer
+    SAMPLES['SRR997303'] = 'Her65'  # Herauld
+    SAMPLES['SRR997318'] = 'Lan7'  # Lancon
+    SAMPLES['SRR997316'] = 'Lan8'  # Lancon
+    SAMPLES['SRR997305'] = 'Vau73'  # Vaucluse
+
+    # record the index of the last wild sample
+    WILD_THRESHOLD = len(SAMPLES) - 1
+
+    # domestic population, w/ accession codes and sample ID
+    SAMPLES['SRR997320'] = 'FA801'  # Champagne d'argent
+    SAMPLES['SRR997321'] = 'AC100'  # Angora
+    SAMPLES['SRR997327'] = 'A93015'  # Angora
+    SAMPLES['SRR997323'] = 'FL920'  # French lop
+    SAMPLES['SRR997326'] = 'FG3'  # Flemish giant
+    SAMPLES['SRR997324'] = 'FG4'  # Flemish giant
+    SAMPLES['SRR997322'] = 'REX12'  # Rex
+
+    print generate_frequency_spectrum(SAMPLES, WILD_THRESHOLD)
