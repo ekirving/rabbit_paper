@@ -66,6 +66,8 @@ def rephase_files(lines, filehandles):
         # get the maximum position of the current lines
         maxpos = max(positions)
 
+        # TODO handle case where chrom numbers are unphased
+
         # check each file to see which ones are behind
         for i, unused in enumerate(lines):
             # advance until we catch up
@@ -128,8 +130,8 @@ def generate_frequency_spectrum(samples, wild_threshold):
                 outgroup = lines[0]
 
                 # get the chromosome number and position
-                chrm = outgroup[CHROM]
-                pos = outgroup[POS]
+                chrm = int(outgroup[CHROM])
+                pos = int(outgroup[POS])
 
                 # skip all sites with indels
                 if 'INDEL' in outgroup[INFO]:
