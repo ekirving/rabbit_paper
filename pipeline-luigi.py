@@ -4,6 +4,7 @@ import numpy
 import os
 import json
 import subprocess
+from collections import OrderedDict
 
 # import the custom vcf parser
 from vcfparser import *
@@ -14,7 +15,7 @@ from vcfparser import *
 GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
-SAMPLES = {}
+SAMPLES = OrderedDict()
 
 # the outgroup (must be first element in the dictionary)
 SAMPLES['SRR997325']='BH23'   # Belgian hare
