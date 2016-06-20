@@ -96,7 +96,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
     """
 
     # open all files for reading
-    filehandles = [open("vcf/{name}.vcf".format(name=sample), 'r') for sample in samples]
+    filehandles = [open("vcf/{}.vcf.short".format(sample), 'r') for sample in samples]
 
     # skip over the block comments (which are variable length)
     for fin in filehandles:
