@@ -4,6 +4,7 @@ Custom VCF parser for generating a site frequency spectrum data file for consump
 """
 import itertools
 import logging
+from collections import defaultdict
 
 # VCF column headers
 CHROM = 0
@@ -108,8 +109,8 @@ def generate_frequency_spectrum(samples, wild_threshold):
     # keep count of SNP sites
     snpcount = 0
 
-    # output the header row
-    output = 'Rabbit\tHare\tAllele1\tWLD\tDOM\tAllele2\tWLD\tDOM\tGene\tPosition\n'
+    # store the SNPs in a dictionary
+    SNPs = defaultdict(dict)
 
     try:
 
@@ -203,22 +204,12 @@ def generate_frequency_spectrum(samples, wild_threshold):
                         if allele not in frequencies:
                             frequencies[allele] = {'wild': 0, 'doms': 0}
 
-                # TODO what about the previous and subsequent positions
-
-                # start composing the output line...
-                # Ref | Out | Allele1 | WILD | DOMS | Allele2 | WILD | DOMS | Gene | Position
-                output += '-{ref}-\t-{out}-\t'.format(ref=ref_allele,
-                                                      out=out_allele)
-
-                for allele, count in frequencies.iteritems():
-                    # output the allele counts
-                    output += '{alle}\t{wild}\t{doms}\t'.format(alle=allele,
-                                                                wild=count['wild'],
-                                                                doms=count['doms'])
-
-                # add the chromosome name and position
-                output += 'chr{chrm}\t{pos}\n'.format(chrm=chrm,
-                                                      pos=pos)
+                # add the site to the SNP dictionary (so we can look up the flanking bases when we're done here)
+                SNPs[chrm][pos] = {
+                    'ref' : ref_allele,
+                    'out' : out_allele,
+                    'frq' : frequencies
+                }
 
                 # increment the SNP count
                 snpcount += 1
@@ -235,6 +226,57 @@ def generate_frequency_spectrum(samples, wild_threshold):
         logging.debug('Reached the end of one of the files {}'.format(e))
         pass
 
+    # start composing the output file
+    output = 'Rabbit\tHare\tAllele1\tWLD\tDOM\tAllele2\tWLD\tDOM\tGene\tPosition\n'
+
+    for chrm in SNPs:
+        for pos in SNPs[chrm]:
+            # Ref | Out | Allele1 | WILD | DOMS | Allele2 | WILD | DOMS | Gene | Position
+
+            # add the output row
+            output += '-{ref}-\t-{out}-\t'.format(ref=SNPs[chrm][pos]['ref'],
+                                                  out=SNPs[chrm][pos]['out'])
+
+            for allele, count in SNPs[chrm][pos]['frq'].iteritems():
+                # output the allele counts
+                output += '{alle}\t{wild}\t{doms}\t'.format(alle=allele,
+                                                            wild=count['wild'],
+                                                            doms=count['doms'])
+
+            # add the chromosome name and position
+            output += 'chr{chrm}\t{pos}\n'.format(chrm=chrm, pos=pos)
+
     logging.debug('Finished! Found {} suitable SNP sites'.format(snpcount))
 
     return output
+
+
+if __name__ == '__main__':
+    # TODO remove when done testing
+    SAMPLES = {}
+
+    # the outgroup (must be first element in the dictionary)
+    SAMPLES['SRR997325'] = 'BH23'  # Belgian hare
+
+    # wild population, w/ accession codes and sample ID
+    SAMPLES['SRR997319'] = 'Avey36'  # Aveyron
+    SAMPLES['SRR997317'] = 'Fos6'  # Fos-su-Mer
+    SAMPLES['SRR997304'] = 'Fos2'  # Fos-su-Mer
+    SAMPLES['SRR997303'] = 'Her65'  # Herauld
+    SAMPLES['SRR997318'] = 'Lan7'  # Lancon
+    SAMPLES['SRR997316'] = 'Lan8'  # Lancon
+    SAMPLES['SRR997305'] = 'Vau73'  # Vaucluse
+
+    # record the index of the last wild sample
+    WILD_THRESHOLD = len(SAMPLES) - 1
+
+    # domestic population, w/ accession codes and sample ID
+    SAMPLES['SRR997320'] = 'FA801'  # Champagne d'argent
+    SAMPLES['SRR997321'] = 'AC100'  # Angora
+    SAMPLES['SRR997327'] = 'A93015'  # Angora
+    SAMPLES['SRR997323'] = 'FL920'  # French lop
+    SAMPLES['SRR997326'] = 'FG3'  # Flemish giant
+    SAMPLES['SRR997324'] = 'FG4'  # Flemish giant
+    SAMPLES['SRR997322'] = 'REX12'  # Rex
+
+    print generate_frequency_spectrum(SAMPLES, WILD_THRESHOLD)
