@@ -4,7 +4,7 @@ Custom VCF parser for generating a site frequency spectrum data file for consump
 """
 import itertools
 import logging
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 # VCF column headers
 CHROM = 0
@@ -88,6 +88,48 @@ def rephase_files(lines, filehandles):
 
     logging.debug("Rephased from {} to {}, skipping {} sites ".format(original, positions, len(set(skipped))))
 
+def fetch_flanking_bases(chrm, pos, ref, out, fin):
+    """
+    Fetches the two flanking bases for the given position
+
+    :param chrm: Chromosome number
+    :param pos: Postion number
+    :param ref: The reference allele
+    :param out: The outgroup allele
+    :param fin: The file handle
+    :return:
+    """
+
+    ref_left, ref_right, out_left, out_right = '-', '-', '-', '-'
+
+    for line in fin:
+        # convert to list
+        line = line.split()
+
+        # get the current coordinates
+        current = (int(line[CHROM]), int(line[POS]))
+
+        if current == (chrm, pos - 1):
+            if 'INDEL' not in line[INFO]:
+                # left flanking site
+                ref_left = line[REF]
+                out_left = line[ALT].replace('.', ref_left)
+
+        elif current > (chrm, pos):
+            if current == (chrm, pos + 1):
+                if 'INDEL' not in line[INFO]:
+                    # right flanking site
+                    ref_right = line[REF]
+                    out_right = line[ALT].replace('.', ref_right)
+
+            # stop
+            break
+
+    # form the tri allele blocks
+    ref_tri = ref_left + ref + ref_right
+    out_tri = out_left + out + out_right
+
+    return (ref_tri, out_tri)
 
 def generate_frequency_spectrum(samples, wild_threshold):
     """
@@ -110,7 +152,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
     snpcount = 0
 
     # store the SNPs in a dictionary
-    SNPs = defaultdict(dict)
+    SNPs = defaultdict(OrderedDict)
 
     try:
 
@@ -226,6 +268,17 @@ def generate_frequency_spectrum(samples, wild_threshold):
         logging.debug('Reached the end of one of the files {}'.format(e))
         pass
 
+    # close all the open files
+    for fin in filehandles:
+        fin.close()
+
+    # reopen the outgroup file
+    fin = open("vcf/{}.vcf.short".format(samples.iterkeys().next()), 'r')
+
+    # skip over the block comments (which are variable length)
+    while fin.readline().startswith("##"):
+        pass
+
     # start composing the output file
     output = 'Rabbit\tHare\tAllele1\tWLD\tDOM\tAllele2\tWLD\tDOM\tGene\tPosition\n'
 
@@ -233,9 +286,11 @@ def generate_frequency_spectrum(samples, wild_threshold):
         for pos in SNPs[chrm]:
             # Ref | Out | Allele1 | WILD | DOMS | Allele2 | WILD | DOMS | Gene | Position
 
+            (ref_tri, out_tri) = fetch_flanking_bases(chrm, pos, SNPs[chrm][pos]['ref'], SNPs[chrm][pos]['out'], fin)
+
             # add the output row
-            output += '-{ref}-\t-{out}-\t'.format(ref=SNPs[chrm][pos]['ref'],
-                                                  out=SNPs[chrm][pos]['out'])
+            output += '{ref}\t{out}\t'.format(ref=ref_tri,
+                                              out=out_tri)
 
             for allele, count in SNPs[chrm][pos]['frq'].iteritems():
                 # output the allele counts
@@ -246,6 +301,8 @@ def generate_frequency_spectrum(samples, wild_threshold):
             # add the chromosome name and position
             output += 'chr{chrm}\t{pos}\n'.format(chrm=chrm, pos=pos)
 
+    fin.close()
+
     logging.debug('Finished! Found {} suitable SNP sites'.format(snpcount))
 
     return output
@@ -253,7 +310,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
 
 if __name__ == '__main__':
     # TODO remove when done testing
-    SAMPLES = {}
+    SAMPLES = OrderedDict()
 
     # the outgroup (must be first element in the dictionary)
     SAMPLES['SRR997325'] = 'BH23'  # Belgian hare
