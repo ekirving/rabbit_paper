@@ -1,12 +1,10 @@
-# PyCharm temp file
+# compiled python byte code
 *.pyc
 
 # output logging from nohup command
 nohup.out
 
 # temp files
-temp.py
-stub.py
-
-# log file
-parse-vcf.log
+temp*
+stub*
+test*
