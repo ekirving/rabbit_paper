@@ -88,7 +88,7 @@ def rephase_files(lines, filehandles):
 
     logging.debug("Rephased from {} to {}, skipping {} sites ".format(original, positions, len(set(skipped))))
 
-def fetch_flanking_bases(chrm, pos, ref, out, fin):
+def fetch_flanking_bases(chrm, pos, fin):
     """
     Fetches the two flanking bases for the given position
 
@@ -109,27 +109,25 @@ def fetch_flanking_bases(chrm, pos, ref, out, fin):
         # get the current coordinates
         current = (int(line[CHROM]), int(line[POS]))
 
+        # left flanking site
         if current == (chrm, pos - 1):
+            # skip indels
             if 'INDEL' not in line[INFO]:
-                # left flanking site
                 ref_left = line[REF]
                 out_left = line[ALT].replace('.', ref_left)
 
         elif current > (chrm, pos):
+            # right flanking site
             if current == (chrm, pos + 1):
+                # skip indels
                 if 'INDEL' not in line[INFO]:
-                    # right flanking site
                     ref_right = line[REF]
                     out_right = line[ALT].replace('.', ref_right)
 
-            # stop
+            # overshot
             break
 
-    # form the tri allele blocks
-    ref_tri = ref_left + ref + ref_right
-    out_tri = out_left + out + out_right
-
-    return (ref_tri, out_tri)
+    return (ref_left, ref_right, out_left, out_right)
 
 def generate_frequency_spectrum(samples, wild_threshold):
     """
@@ -141,7 +139,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
     """
 
     # open all files for reading
-    filehandles = [open("vcf/{}.vcf.short".format(sample), 'r') for sample in samples]
+    filehandles = [open("vcf/{}.vcf".format(sample), 'r') for sample in samples]
 
     # skip over the block comments (which are variable length)
     for fin in filehandles:
@@ -273,7 +271,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
         fin.close()
 
     # reopen the outgroup file
-    fin = open("vcf/{}.vcf.short".format(samples.iterkeys().next()), 'r')
+    fin = open("vcf/{}.vcf".format(samples.iterkeys().next()), 'r')
 
     # skip over the block comments (which are variable length)
     while fin.readline().startswith("##"):
@@ -286,11 +284,16 @@ def generate_frequency_spectrum(samples, wild_threshold):
         for pos in SNPs[chrm]:
             # Ref | Out | Allele1 | WILD | DOMS | Allele2 | WILD | DOMS | Gene | Position
 
-            (ref_tri, out_tri) = fetch_flanking_bases(chrm, pos, SNPs[chrm][pos]['ref'], SNPs[chrm][pos]['out'], fin)
+            # fetch the flanking bases for the reference and outgroup sequeneces
+            (ref_left, ref_right, out_left, out_right) = fetch_flanking_bases(chrm, pos, fin)
 
             # add the output row
-            output += '{ref}\t{out}\t'.format(ref=ref_tri,
-                                              out=out_tri)
+            output += '{ref_left}{ref}{ref_right}\t{out_left}{out}{out_right}\t'.format(ref_left=ref_left,
+                                                                                        ref=SNPs[chrm][pos]['ref'],
+                                                                                        ref_right=ref_right,
+                                                                                        out_left=out_left,
+                                                                                        out=SNPs[chrm][pos]['out'],
+                                                                                        out_right=out_right)
 
             for allele, count in SNPs[chrm][pos]['frq'].iteritems():
                 # output the allele counts
