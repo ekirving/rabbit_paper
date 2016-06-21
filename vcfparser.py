@@ -88,14 +88,13 @@ def rephase_files(lines, filehandles):
 
     logging.debug("Rephased from {} to {}, skipping {} sites ".format(original, positions, len(set(skipped))))
 
+
 def fetch_flanking_bases(chrm, pos, fin):
     """
     Fetches the two flanking bases for the given position
 
     :param chrm: Chromosome number
     :param pos: Postion number
-    :param ref: The reference allele
-    :param out: The outgroup allele
     :param fin: The file handle
     :return:
     """
@@ -109,25 +108,23 @@ def fetch_flanking_bases(chrm, pos, fin):
         # get the current coordinates
         current = (int(line[CHROM]), int(line[POS]))
 
-        # left flanking site
         if current == (chrm, pos - 1):
-            # skip indels
+            # left flanking site
             if 'INDEL' not in line[INFO]:
                 ref_left = line[REF]
                 out_left = line[ALT].replace('.', ref_left)
 
         elif current > (chrm, pos):
             # right flanking site
-            if current == (chrm, pos + 1):
-                # skip indels
-                if 'INDEL' not in line[INFO]:
-                    ref_right = line[REF]
-                    out_right = line[ALT].replace('.', ref_right)
+            if current == (chrm, pos + 1) and 'INDEL' not in line[INFO]:
+                ref_right = line[REF]
+                out_right = line[ALT].replace('.', ref_right)
 
-            # overshot
+            # reached stopping condition
             break
 
-    return (ref_left, ref_right, out_left, out_right)
+    return ref_left, ref_right, out_left, out_right
+
 
 def generate_frequency_spectrum(samples, wild_threshold):
     """
@@ -150,7 +147,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
     snpcount = 0
 
     # store the SNPs in a dictionary
-    SNPs = defaultdict(OrderedDict)
+    variants = defaultdict(OrderedDict)
 
     try:
 
@@ -245,11 +242,7 @@ def generate_frequency_spectrum(samples, wild_threshold):
                             frequencies[allele] = {'wild': 0, 'doms': 0}
 
                 # add the site to the SNP dictionary (so we can look up the flanking bases when we're done here)
-                SNPs[chrm][pos] = {
-                    'ref' : ref_allele,
-                    'out' : out_allele,
-                    'frq' : frequencies
-                }
+                variants[chrm][pos] = dict(ref=ref_allele, out=out_allele, frq=frequencies)
 
                 # increment the SNP count
                 snpcount += 1
@@ -280,8 +273,8 @@ def generate_frequency_spectrum(samples, wild_threshold):
     # start composing the output file
     output = 'Rabbit\tHare\tAllele1\tWLD\tDOM\tAllele2\tWLD\tDOM\tGene\tPosition\n'
 
-    for chrm in SNPs:
-        for pos in SNPs[chrm]:
+    for chrm in variants:
+        for pos in variants[chrm]:
             # Ref | Out | Allele1 | WILD | DOMS | Allele2 | WILD | DOMS | Gene | Position
 
             # fetch the flanking bases for the reference and outgroup sequeneces
@@ -289,13 +282,13 @@ def generate_frequency_spectrum(samples, wild_threshold):
 
             # add the output row
             output += '{ref_left}{ref}{ref_right}\t{out_left}{out}{out_right}\t'.format(ref_left=ref_left,
-                                                                                        ref=SNPs[chrm][pos]['ref'],
+                                                                                        ref=variants[chrm][pos]['ref'],
                                                                                         ref_right=ref_right,
                                                                                         out_left=out_left,
-                                                                                        out=SNPs[chrm][pos]['out'],
+                                                                                        out=variants[chrm][pos]['out'],
                                                                                         out_right=out_right)
 
-            for allele, count in SNPs[chrm][pos]['frq'].iteritems():
+            for allele, count in variants[chrm][pos]['frq'].iteritems():
                 # output the allele counts
                 output += '{alle}\t{wild}\t{doms}\t'.format(alle=allele,
                                                             wild=count['wild'],
