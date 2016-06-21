@@ -18,28 +18,28 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 SAMPLES = OrderedDict()
 
 # the outgroup (must be first element in the dictionary)
-SAMPLES['SRR997325']='BH23'   # Belgian hare
+SAMPLES['SRR997325'] = 'BH23'   # Belgian hare
 
 # wild population, w/ accession codes and sample ID
-SAMPLES['SRR997319']='Avey36' # Aveyron
-SAMPLES['SRR997317']='Fos6'   # Fos-su-Mer
-SAMPLES['SRR997304']='Fos2'   # Fos-su-Mer
-SAMPLES['SRR997303']='Her65'  # Herauld
-SAMPLES['SRR997318']='Lan7'   # Lancon
-SAMPLES['SRR997316']='Lan8'   # Lancon
-SAMPLES['SRR997305']='Vau73'  # Vaucluse
+SAMPLES['SRR997319'] = 'Avey36' # Aveyron
+SAMPLES['SRR997317'] = 'Fos6'   # Fos-su-Mer
+SAMPLES['SRR997304'] = 'Fos2'   # Fos-su-Mer
+SAMPLES['SRR997303'] = 'Her65'  # Herauld
+SAMPLES['SRR997318'] = 'Lan7'   # Lancon
+SAMPLES['SRR997316'] = 'Lan8'   # Lancon
+SAMPLES['SRR997305'] = 'Vau73'  # Vaucluse
 
 # record the index of the last wild sample
 WILD_THRESHOLD = len(SAMPLES)-1
 
 # domestic population, w/ accession codes and sample ID
-SAMPLES['SRR997320']='FA801'   # Champagne d'argent
-SAMPLES['SRR997321']='AC100'   # Angora
-SAMPLES['SRR997327']='A93015'  # Angora
-SAMPLES['SRR997323']='FL920'   # French lop
-SAMPLES['SRR997326']='FG3'     # Flemish giant
-SAMPLES['SRR997324']='FG4'     # Flemish giant
-SAMPLES['SRR997322']='REX12'   # Rex
+SAMPLES['SRR997320'] = 'FA801'   # Champagne d'argent
+SAMPLES['SRR997321'] = 'AC100'   # Angora
+SAMPLES['SRR997327'] = 'A93015'  # Angora
+SAMPLES['SRR997323'] = 'FL920'   # French lop
+SAMPLES['SRR997326'] = 'FG3'     # Flemish giant
+SAMPLES['SRR997324'] = 'FG4'     # Flemish giant
+SAMPLES['SRR997322'] = 'REX12'   # Rex
 
 # the URLs for the paried end fastq files
 PAIR1_URL = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
@@ -86,7 +86,7 @@ def run_cmd(cmd):
 
     return stdout
 
-def Unzip_File(gzip):
+def unzip_file(gzip):
     """
     Unzip a gzipped file, using multi-threading when available
 
@@ -112,6 +112,7 @@ def Unzip_File(gzip):
             # escalate the exception
             raise e
 
+
 class Curl_Download(luigi.Task):
     """
     Downloads a remote url to a local file path using cURL
@@ -134,6 +135,7 @@ class Curl_Download(luigi.Task):
 
         print "====== cURL Downloading file ======"
 
+
 class PairedEnd_Fastq(luigi.Task):
     """
     Fetches the two paired-end FASTQ files for a given sample ID
@@ -155,8 +157,8 @@ class PairedEnd_Fastq(luigi.Task):
         (pair1, pair2) = self.requires()
 
         # unzip them
-        fastq1 = Unzip_File(pair1.file)
-        fastq2 = Unzip_File(pair2.file)
+        fastq1 = unzip_file(pair1.file)
+        fastq2 = unzip_file(pair2.file)
 
         with self.output()[0].open('w') as fout1, self.output()[1].open('w') as fout2:
             fout1.write(fastq1)
@@ -181,7 +183,7 @@ class Genome_Fasta(luigi.Task):
 
     def run(self):
         # unzip the file
-        fasta = Unzip_File(self.requires().file)
+        fasta = unzip_file(self.requires().file)
 
         with self.output().open('w') as fout:
             fout.write(fasta)
