@@ -20,6 +20,8 @@ SAMPLES = OrderedDict()
 # the outgroup (must be first element in the dictionary)
 SAMPLES['SRR997325'] = 'BH23'   # Belgian hare
 
+# FIXME Belgian hare is a domestic rabbit!!!!!!
+
 # wild population, w/ accession codes and sample ID
 SAMPLES['SRR997319'] = 'Avey36' # Aveyron
 SAMPLES['SRR997317'] = 'Fos6'   # Fos-su-Mer
@@ -313,117 +315,141 @@ class Index_Bam(luigi.Task):
 
         print "==== Indexing CRAM ===="
 
-class Convert_Bam_Cram(luigi.Task):
+class Remove_Duplicates_BAM(luigi.Task):
     """
-    Convert a BAM file into the smaller CRAM format
-    """
-    sample = luigi.Parameter()
-    genome = luigi.Parameter()
-
-    def requires(self):
-        return [Index_Bam(self.sample, self.genome),
-                Samtools_Fasta_Index(self.genome)]
-
-    def output(self):
-        return luigi.LocalTarget("cram/" + self.sample + ".cram")
-
-    def run(self):
-        # perform the BAM -> CRAM conversion
-        cram = run_cmd(["samtools1.3",
-                        "view",
-                        "-@", MAX_CPU_CORES,                  # number of cores
-                        "-C",                                 # output a CRAM file
-                        "-T", "fasta/" + self.genome + ".fa", # reference genome
-                        "bam/" + self.sample + ".bam"])       # input BAM file
-
-        # save the CRAM file
-        with self.output().open('w') as fout:
-            fout.write(cram)
-
-        print "===== Converted BAM file to CRAM ======"
-
-class Index_Cram(luigi.Task):
-    """
-    Create an index for the CRAM file, for fast random access
-    """
-    sample = luigi.Parameter()
-    genome = luigi.Parameter()
-
-    def output(self):
-        return luigi.LocalTarget("cram/" + self.sample + ".cram.crai")
-
-    def requires(self):
-        return Convert_Bam_Cram(self.sample, self.genome)
-
-    def run(self):
-        run_cmd(["samtools1.3",
-                 "index",
-                 "cram/" + self.sample + ".cram"])
-
-        print "==== Indexing CRAM ===="
-
-class Samtools_MPileup(luigi.Task):
-    """
-    Convert the CRAM file into a pileup
+    Remove PCR duplicates, so we don't overestimate coverage
     """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
 
     def requires(self):
-        return Index_Cram(self.sample, self.genome)
+        return Index_Bam(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("pileup/" + self.sample + ".pileup")
+        return luigi.LocalTarget("bam/" + self.sample + ".rmdup.bam")
 
     def run(self):
-        pileup = run_cmd(["samtools1.3",
-                          "mpileup",
-                          "-o",  self.output().path,            # output location
-                          "-f", "fasta/" + self.genome + ".fa", # reference genome
-                          "cram/" + self.sample + ".cram"])     # input CRAM file
+        run_cmd(["java", "-jar", "/usr/local/picard-tools-2.5.0/picard.jar",
+                 "MarkDuplicates"
+                 "INPUT=" + self.sample + ".bam",
+                 "OUTPUT=" + self.sample + ".rmdup.bam",
+                 "METRICS_FILE=" + self.sample + ".rmdup.txt",
+                 "REMOVE_DUPLICATES=true",
+                 "QUIET=true"])
 
-        # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
+        print "==== Removed Duplicates from BAM ===="
 
-        # save the pileup file
-        # with self.output().open('w') as fout:
-        #     fout.write(pileup)
+# class Convert_Bam_Cram(luigi.Task):
+#     """
+#     Convert a BAM file into the smaller CRAM format
+#     """
+#     sample = luigi.Parameter()
+#     genome = luigi.Parameter()
+#
+#     def requires(self):
+#         return [Index_Bam(self.sample, self.genome),
+#                 Samtools_Fasta_Index(self.genome)]
+#
+#     def output(self):
+#         return luigi.LocalTarget("cram/" + self.sample + ".cram")
+#
+#     def run(self):
+#         # perform the BAM -> CRAM conversion
+#         cram = run_cmd(["samtools1.3",
+#                         "view",
+#                         "-@", MAX_CPU_CORES,                  # number of cores
+#                         "-C",                                 # output a CRAM file
+#                         "-T", "fasta/" + self.genome + ".fa", # reference genome
+#                         "bam/" + self.sample + ".bam"])       # input BAM file
+#
+#         # save the CRAM file
+#         with self.output().open('w') as fout:
+#             fout.write(cram)
+#
+#         print "===== Converted BAM file to CRAM ======"
+#
+# class Index_Cram(luigi.Task):
+#     """
+#     Create an index for the CRAM file, for fast random access
+#     """
+#     sample = luigi.Parameter()
+#     genome = luigi.Parameter()
+#
+#     def output(self):
+#         return luigi.LocalTarget("cram/" + self.sample + ".cram.crai")
+#
+#     def requires(self):
+#         return Convert_Bam_Cram(self.sample, self.genome)
+#
+#     def run(self):
+#         run_cmd(["samtools1.3",
+#                  "index",
+#                  "cram/" + self.sample + ".cram"])
+#
+#         print "==== Indexing CRAM ===="
+#
+# class Samtools_MPileup(luigi.Task):
+#     """
+#     Convert the BAM file into a pileup
+#     """
+#     sample = luigi.Parameter()
+#     genome = luigi.Parameter()
+#
+#     def requires(self):
+#         return Remove_Duplicates_BAM(self.sample, self.genome)
+#
+#     def output(self):
+#         return luigi.LocalTarget("pileup/" + self.sample + ".pileup")
+#
+#     def run(self):
+#         pileup = run_cmd(["samtools1.3",
+#                           "mpileup",
+#                           "-o",  self.output().path,            # output location
+#                           "-f", "fasta/" + self.genome + ".fa", # reference genome
+#                           "bam/" + self.sample + ".rmdup.bam"]) # input BAM file
+#
+#         # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
+#
+#         # save the pileup file
+#         # with self.output().open('w') as fout:
+#         #     fout.write(pileup)
+#
+#         print "===== Converted CRAM file to pileup ======="
+#
+# class Coverage_Stats(luigi.Task):
+#     """
+#     Parse the pileup and compute depth of coverage statistics
+#
+#     NB. Method is very memory hungry
+#     """
+#     sample = luigi.Parameter()
+#     genome = luigi.Parameter()
+#
+#     def requires(self):
+#         return Samtools_MPileup(self.sample, self.genome)
+#
+#     def output(self):
+#         return luigi.LocalTarget("pileup/" + self.sample + ".pileup.stats")
+#
+#     def run(self):
+#
+#         # parse the pileup and load the coverage data into memory (expensive!!)
+#         coverage = numpy.loadtxt("pileup/" + self.sample + ".pileup", dtype=int, delimiter=' ', usecols=[3])
+#
+#         # make a dictionary
+#         stats = {}
+#
+#         # calcluate the 1st and 3rd quartiles
+#         (stats['q1'], stats['q2']) = numpy.percentile(coverage, [25, 75])
+#
+#         # seralize the dictionary for later use
+#         with self.output().open('w') as fout:
+#             fout.write(json.dumps(stats))
+#
+#         print "===== Calcualted depth of coverage ======="
 
-        print "===== Converted CRAM file to pileup ======="
 
-class Coverage_Stats(luigi.Task):
-    """
-    Parse the pileup and compute depth of coverage statistics
-
-    NB. Method is very memory hungry
-    """
-    sample = luigi.Parameter()
-    genome = luigi.Parameter()
-
-    def requires(self):
-        return Samtools_MPileup(self.sample, self.genome)
-
-    def output(self):
-        return luigi.LocalTarget("pileup/" + self.sample + ".pileup.stats")
-
-    def run(self):
-
-        # parse the pileup and load the coverage data into memory (expensive!!)
-        coverage = numpy.loadtxt("pileup/" + self.sample + ".pileup", dtype=int, delimiter=' ', usecols=[3])
-
-        # make a dictionary
-        stats = {}
-
-        # calcluate the 1st and 3rd quartiles
-        (stats['q1'], stats['q2']) = numpy.percentile(coverage, [25, 75])
-
-        # seralize the dictionary for later use
-        with self.output().open('w') as fout:
-            fout.write(json.dumps(stats))
-
-        print "===== Calcualted depth of coverage ======="
-
-
-class Convert_Cram_Bcf(luigi.Task):
+class Convert_Bam_Bcf(luigi.Task):
     """
     Convert the BAM file into a BCF
     """
@@ -431,7 +457,7 @@ class Convert_Cram_Bcf(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return Index_Cram(self.sample, self.genome)
+        return Remove_Duplicates_BAM(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("bcf/" + self.sample + ".bcf")
@@ -442,7 +468,7 @@ class Convert_Cram_Bcf(luigi.Task):
                        "-g",                                 # call genotypes
                        "-o", self.output().path,             # output location
                        "-f", "fasta/" + self.genome + ".fa", # reference genome
-                       "cram/" + self.sample + ".cram"])     # input CRAM file
+                       "bam/" + self.sample + ".rmdup.bam"])     # input CRAM file
 
         # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
 
@@ -450,11 +476,11 @@ class Convert_Cram_Bcf(luigi.Task):
         # with self.output().open('w') as fout:
         #     fout.write(bcf)
 
-        print "===== Converted CRAM file to pileup ======="
+        print "===== Converted BAM file to BCF ======="
 
 class Bcftools_Call(luigi.Task):
     """
-    Convert the BAM file into a BCF
+    Convert the BCF file into a VCF
     """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
