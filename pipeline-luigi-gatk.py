@@ -1,10 +1,7 @@
 import luigi
 import multiprocessing
-import numpy
 import os
-import json
 import subprocess
-from collections import OrderedDict
 
 # import the custom vcf parser
 from vcfparser import *
@@ -15,29 +12,23 @@ from vcfparser import *
 GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
-SAMPLES = OrderedDict()
+# Wild mountain hare / Lepus timidus
+OUTGROUP = 'SAMN02028643'
 
-# wild population, w/ accession codes and sample ID
-SAMPLES['SRR997319'] = 'Avey36' # Aveyron
-SAMPLES['SRR997317'] = 'Fos6'   # Fos-su-Mer
-SAMPLES['SRR997304'] = 'Fos2'   # Fos-su-Mer
-SAMPLES['SRR997303'] = 'Her65'  # Herauld
-SAMPLES['SRR997318'] = 'Lan7'   # Lancon
-SAMPLES['SRR997316'] = 'Lan8'   # Lancon
-SAMPLES['SRR997305'] = 'Vau73'  # Vaucluse
+# population, accession codes
+SAMPLES = dict()
 
-# record the index of the last wild sample
-WILD_THRESHOLD = len(SAMPLES)
+# Domestic breeds
+SAMPLES['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
 
-# domestic population, w/ accession codes and sample ID
-SAMPLES['SRR997325'] = 'BH23'    # Belgian hare
-SAMPLES['SRR997320'] = 'FA801'   # Champagne d'argent
-SAMPLES['SRR997321'] = 'AC100'   # Angora
-SAMPLES['SRR997327'] = 'A93015'  # Angora
-SAMPLES['SRR997323'] = 'FL920'   # French lop
-SAMPLES['SRR997326'] = 'FG3'     # Flemish giant
-SAMPLES['SRR997324'] = 'FG4'     # Flemish giant
-SAMPLES['SRR997322'] = 'REX12'   # Rex
+# Wild French
+SAMPLES['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
+
+# Wild Iberian / Oryctolagus cuniculus algirus
+# SAMPLES['WLD-IB1'] = ['SAMN02028631', 'SAMN02028632', 'SAMN02028634', 'SAMN02028633', 'SAMN02028635', 'SAMN02028636']
+
+# Wild Iberian / Oryctolagus cuniculus cuniculus
+# SAMPLES['WLD-IB2'] = ['SAMN02028637', 'SAMN02028638', 'SAMN02028642', 'SAMN02028639', 'SAMN02028640', 'SAMN02028641']
 
 # the URLs for the paried end fastq files
 PAIR1_URL = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
@@ -264,9 +255,7 @@ class Bwa_Mem(luigi.Task):
         return luigi.LocalTarget("sam/" + self.sample + ".sam")
 
     def run(self):
-        global SAMPLES
-        readgroup= "@RG\\tID:{id}\\tSM:{sample}".format(id=SAMPLES[self.sample],
-                                                        sample=self.sample)
+        readgroup= "@RG\\tID:{sample}\\tSM:{sample}".format(sample=self.sample)
 
         # perform the alignment
         sam = run_cmd(["bwa",
@@ -357,34 +346,39 @@ class Samtools_Index_Bam(luigi.Task):
 
         print "==== Indexing CRAM ===="
 
-# class GATK_Variant_Call(luigi.Task):
-#     """
-#     Convert the BAM file into a BCF
-#     """
-#     sample = luigi.Parameter()
-#     genome = luigi.Parameter()
-#
-#     def requires(self):
-#         return Picard_MarkDuplicates(self.sample, self.genome)
-#
-#     def output(self):
-#         return luigi.LocalTarget("bcf/" + self.sample + ".bcf")
-#
-#     def run(self):
-#         bcf = run_cmd(["samtools1.3",
-#                        "mpileup",
-#                        "-g",                                 # call genotypes
-#                        "-o", self.output().path,             # output location
-#                        "-f", "fasta/" + self.genome + ".fa", # reference genome
-#                        "bam/" + self.sample + ".rmdup.bam"]) # input BAM file
-#
-#         # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
-#
-#         # # save the BCF file
-#         # with self.output().open('w') as fout:
-#         #     fout.write(bcf)
-#
-#         print "===== Converted BAM file to BCF ======="
+class GATK_Variant_Call(luigi.Task):
+    """
+    Convert the BAM file into a BCF
+    """
+    population = luigi.Parameter()
+    samples = luigi.ListParameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        # reference genome must be properly indexed
+        yield Samtools_Faidx(self.genome)
+        yield Picard_CreateSequenceDictionary(self.genome)
+
+        # samples must be pre-processed
+        for sample in self.samples:
+            yield Picard_MarkDuplicates(sample, self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("vcf/" + self.population + ".vcf")
+
+    def run(self):
+        # run_cmd(["java", "-jar",
+        #          "../GenomeAnalysisTK.jar",
+        #          "-T", "HaplotypeCaller",              # use the HaplotypeCaller to call variants
+        #          "-R", "fasta/" + self.genome + ".fa", # the indexed reference genome
+        #          "-I", "bam/SRR997303.rmdup.bam",      # samples...
+        #          "-I", "bam/SRR997304.rmdup.bam",
+        #          "--genotyping_mode", "DISCOVERY",     # variant discovery
+        #          "-stand_emit_conf", "10",             # min confidence threshold
+        #          "-stand_call_conf", "30",             # min call threshold
+        #          "-o", "vcf/" + self.population + ".vcf"])
+
+        print "===== Converted BAM file to BCF ======="
 
 class Custom_Genome_Pipeline(luigi.Task):
     """
@@ -392,11 +386,8 @@ class Custom_Genome_Pipeline(luigi.Task):
     """
 
     def requires(self):
-        for sample in SAMPLES:
-            yield Samtools_Index_Bam(sample, GENOME)
-
-        yield Samtools_Faidx(GENOME)
-        yield Picard_CreateSequenceDictionary(GENOME)
+        for population in SAMPLES:
+            yield Samtools_Index_Bam(population, SAMPLES[population], GENOME)
 
 if __name__=='__main__':
     luigi.run()
