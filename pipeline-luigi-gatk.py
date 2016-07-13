@@ -371,17 +371,15 @@ class GATK_Variant_Call(luigi.Task):
         # make the list of input files
         bamfiles = sum([["-I", "bam/" + sample + ".rmdup.bam"] for sample in self.samples], [])
 
-        print bamfiles
-
-        # run_cmd(["java", "-jar",
-        #          "../GenomeAnalysisTK.jar",
-        #          "-T", "HaplotypeCaller",              # use the HaplotypeCaller to call variants
-        #          "-R", "fasta/" + self.genome + ".fa", # the indexed reference genome
-        #          "--genotyping_mode", "DISCOVERY",     # variant discovery
-        #          "-stand_emit_conf", "10",             # min confidence threshold
-        #          "-stand_call_conf", "30",             # min call threshold
-        #          "-o", "vcf/" + self.population + ".vcf"]
-        #         + bamfiles)
+        run_cmd(["java", "-jar",
+                 "../GenomeAnalysisTK.jar",
+                 "-T", "HaplotypeCaller",              # use the HaplotypeCaller to call variants
+                 "-R", "fasta/" + self.genome + ".fa", # the indexed reference genome
+                 "--genotyping_mode", "DISCOVERY",     # variant discovery
+                 "-stand_emit_conf", "10",             # min confidence threshold
+                 "-stand_call_conf", "30",             # min call threshold
+                 "-o", "vcf/" + self.population + ".vcf"]
+                + bamfiles)
 
         print "===== Converted BAM file to BCF ======="
 
