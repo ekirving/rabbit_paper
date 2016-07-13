@@ -369,7 +369,7 @@ class GATK_Variant_Call(luigi.Task):
     def run(self):
 
         # make the list of input files
-        bamfiles = [[["-I", "bam/" + sample + ".rmdup.bam"] for sample in self.samples]]
+        bamfiles = sum([["-I", "bam/" + sample + ".rmdup.bam"] for sample in self.samples])
 
         print bamfiles
         # run_cmd(["java", "-jar",
