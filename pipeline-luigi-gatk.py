@@ -353,7 +353,7 @@ class Samtools_Index_Bam(luigi.Task):
         run_cmd(["samtools1.3",
                  "index",
                  "-b",  # create a BAI index
-                 "bam/" + self.sample + ".bam"])  # file to index
+                 "bam/" + self.sample + ".rmdup.bam"])  # file to index
 
         print "==== Indexing CRAM ===="
 
