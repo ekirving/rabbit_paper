@@ -326,7 +326,7 @@ class Picard_MarkDuplicates(luigi.Task):
 
     def run(self):
         run_cmd(["java", "-jar", "/usr/local/picard-tools-2.5.0/picard.jar",
-                 "MarkDuplicates"
+                 "MarkDuplicates",
                  "INPUT=" + self.sample + ".bam",
                  "OUTPUT=" + self.sample + ".rmdup.bam",
                  "METRICS_FILE=" + self.sample + ".rmdup.txt",
