@@ -387,7 +387,7 @@ class Custom_Genome_Pipeline(luigi.Task):
 
     def requires(self):
         for population in SAMPLES:
-            yield Samtools_Index_Bam(population, SAMPLES[population], GENOME)
+            yield GATK_Variant_Call(population, SAMPLES[population], GENOME)
 
 if __name__=='__main__':
     luigi.run()
