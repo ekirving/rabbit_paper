@@ -371,7 +371,7 @@ class Custom_Genome_Pipeline(luigi.Task):
 
     def requires(self):
         for sample in SAMPLES:
-            return Picard_MarkDuplicates(sample, GENOME)
+            yield Picard_MarkDuplicates(sample, GENOME)
 
 if __name__=='__main__':
     luigi.run()
