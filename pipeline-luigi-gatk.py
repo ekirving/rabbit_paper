@@ -190,7 +190,7 @@ class Reference_Genome_Fasta(luigi.Task):
 
 class Samtools_Faidx(luigi.Task):
     """
-    Builds the samtools fasta index for the reference genome, needed for downstream CRAM files
+    Create the samtools fasta index for the reference genome, needed for GATK
     """
     genome = luigi.Parameter()
 
@@ -198,7 +198,7 @@ class Samtools_Faidx(luigi.Task):
         return Reference_Genome_Fasta(self.genome)
 
     def output(self):
-        return luigi.LocalTarget("fasta/" + self.genome + ".fa")
+        return luigi.LocalTarget("fasta/" + self.genome + ".fa.fai")
 
     def run(self):
         run_cmd(["samtools1.3",
@@ -394,6 +394,9 @@ class Custom_Genome_Pipeline(luigi.Task):
     def requires(self):
         for sample in SAMPLES:
             yield Samtools_Index_Bam(sample, GENOME)
+
+        yield Samtools_Faidx(GENOME)
+        yield Picard_CreateSequenceDictionary(GENOME)
 
 if __name__=='__main__':
     luigi.run()
