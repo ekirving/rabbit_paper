@@ -468,7 +468,7 @@ class Convert_Bam_Bcf(luigi.Task):
                        "-g",                                 # call genotypes
                        "-o", self.output().path,             # output location
                        "-f", "fasta/" + self.genome + ".fa", # reference genome
-                       "bam/" + self.sample + ".rmdup.bam"])     # input CRAM file
+                       "bam/" + self.sample + ".rmdup.bam"]) # input BAM file
 
         # TODO can't use output pipe because multithreading casues server to crash due to buffering hundreds of GB in RAM
 
@@ -478,7 +478,7 @@ class Convert_Bam_Bcf(luigi.Task):
 
         print "===== Converted BAM file to BCF ======="
 
-class Bcftools_Call(luigi.Task):
+class Convert_Bcf_Vcf(luigi.Task):
     """
     Convert the BCF file into a VCF
     """
@@ -486,7 +486,7 @@ class Bcftools_Call(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return Convert_Cram_Bcf(self.sample, self.genome)
+        return Convert_Bam_Bcf(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("vcf/" + self.sample + ".vcf")
