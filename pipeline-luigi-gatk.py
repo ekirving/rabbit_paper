@@ -207,6 +207,27 @@ class Samtools_Faidx(luigi.Task):
 
         print "====== Built the samtools FASTA index ======"
 
+class Picard_CreateSequenceDictionary(luigi.Task):
+    """
+    Create the sequence dictionary for the reference genome, needed for GATK
+    """
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return Reference_Genome_Fasta(self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("fasta/" + self.genome + ".fa")
+
+    def run(self):
+        run_cmd(["java", "-jar",
+                 "/usr/local/picard-tools-2.5.0/picard.jar",
+                 "CreateSequenceDictionary",
+                 "R=fasta/" + self.genome + ".fa",        # reference fasta file
+                 "O=fasta/" + self.genome + ".dict"])     # dictionary file
+
+        print "====== Built the picard sequence dictionary ======"
+
 class Bwa_Index_Bwtsw(luigi.Task):
     """
     Builds the BWA index for the reference genome, needed for performing alignments
@@ -222,8 +243,8 @@ class Bwa_Index_Bwtsw(luigi.Task):
 
     def run(self):
         run_cmd(["bwa",
-                 "index",                     # index needed for bwa alignment
-                 "-a", "bwtsw",               # algorithm suitable for mammals
+                 "index",                         # index needed for bwa alignment
+                 "-a", "bwtsw",                   # algorithm suitable for mammals
                  "fasta/" + self.genome + ".fa"]) # input file
 
         print "====== Built the BWA index ======"
@@ -290,27 +311,6 @@ class Samtools_Sort_Bam(luigi.Task):
 
         print "===== Converted SAM file to BAM ======"
 
-class Samtools_Index_Bam(luigi.Task):
-    """
-    Create an index for the BAM file, for fast random access
-    """
-    sample = luigi.Parameter()
-    genome = luigi.Parameter()
-
-    def output(self):
-        return luigi.LocalTarget("bam/" + self.sample + ".bam.bai")
-
-    def requires(self):
-        return Samtools_Sort_Bam(self.sample, self.genome)
-
-    def run(self):
-        run_cmd(["samtools1.3",
-                 "index",
-                 "-b",                           # create a BAI index
-                 "bam/" + self.sample + ".bam"]) # file to index
-
-        print "==== Indexing CRAM ===="
-
 class Picard_MarkDuplicates(luigi.Task):
     """
     Remove PCR duplicates, so we don't overestimate coverage
@@ -319,13 +319,14 @@ class Picard_MarkDuplicates(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return Samtools_Index_Bam(self.sample, self.genome)
+        return Samtools_Sort_Bam(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("bam/" + self.sample + ".rmdup.bam")
 
     def run(self):
-        run_cmd(["java", "-jar", "/usr/local/picard-tools-2.5.0/picard.jar",
+        run_cmd(["java", "-jar",
+                 "/usr/local/picard-tools-2.5.0/picard.jar",
                  "MarkDuplicates",
                  "INPUT=bam/" + self.sample + ".bam",
                  "OUTPUT=bam/" + self.sample + ".rmdup.bam",
@@ -334,6 +335,27 @@ class Picard_MarkDuplicates(luigi.Task):
                  "QUIET=true"])
 
         print "==== Removed Duplicates from BAM ===="
+
+class Samtools_Index_Bam(luigi.Task):
+    """
+    Create an index for the BAM file, for fast random access
+    """
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def output(self):
+        return luigi.LocalTarget("bam/" + self.sample + ".rmdup.bam.bai")
+
+    def requires(self):
+        return Picard_MarkDuplicates(self.sample, self.genome)
+
+    def run(self):
+        run_cmd(["samtools1.3",
+                 "index",
+                 "-b",  # create a BAI index
+                 "bam/" + self.sample + ".bam"])  # file to index
+
+        print "==== Indexing CRAM ===="
 
 # class GATK_Variant_Call(luigi.Task):
 #     """
