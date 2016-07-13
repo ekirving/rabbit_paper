@@ -393,7 +393,7 @@ class Custom_Genome_Pipeline(luigi.Task):
 
     def requires(self):
         for sample in SAMPLES:
-            yield Picard_MarkDuplicates(sample, GENOME)
+            yield Samtools_Index_Bam(sample, GENOME)
 
 if __name__=='__main__':
     luigi.run()
