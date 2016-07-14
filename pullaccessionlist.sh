@@ -8,7 +8,7 @@ do
   printf "Downloading ${var}... "
 
   # dump as fastq files, with paired-end reads in separate files
-  fastq-dump --gzip --split-files "${var//[[:space:]]/}"
+  fastq-dump --gzip --split-files --outdir ./fastq "${var//[[:space:]]/}"
 
   printf "done!\n"
 done

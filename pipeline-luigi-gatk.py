@@ -6,7 +6,7 @@ import subprocess
 # import the custom vcf parser
 from vcfparser import *
 
-# Based on example pipleine from http://coderscrowd.com/app/public/codes/view/229
+# Based on example pipeline from http://coderscrowd.com/app/public/codes/view/229
 
 # the reference genome
 GENOME = "OryCun2.0"
@@ -15,11 +15,11 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 # file containing the list of sequence capture regions, format <chr>:<start>-<stop>
 INTERVAL_LIST = './targets.interval_list'
 
-# Wild mountain hare / Lepus timidus
-OUTGROUP = 'SAMN02028643'
-
 # population, accession codes
 SAMPLES = dict()
+
+# Wild mountain hare / Lepus timidus
+SAMPLES['OUT'] = ['SAMN02028643']
 
 # Domestic breeds
 SAMPLES['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
@@ -28,14 +28,10 @@ SAMPLES['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','S
 SAMPLES['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
 
 # Wild Iberian / Oryctolagus cuniculus algirus
-# SAMPLES['WLD-IB1'] = ['SAMN02028631', 'SAMN02028632', 'SAMN02028634', 'SAMN02028633', 'SAMN02028635', 'SAMN02028636']
+SAMPLES['WLD-IB1'] = ['SAMN02028631', 'SAMN02028632', 'SAMN02028634', 'SAMN02028633', 'SAMN02028635', 'SAMN02028636']
 
 # Wild Iberian / Oryctolagus cuniculus cuniculus
-# SAMPLES['WLD-IB2'] = ['SAMN02028637', 'SAMN02028638', 'SAMN02028642', 'SAMN02028639', 'SAMN02028640', 'SAMN02028641']
-
-# the URLs for the paried end fastq files
-PAIR1_URL = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_1.fastq.gz"
-PAIR2_URL = "ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR997/{sample}/{sample}_2.fastq.gz"
+SAMPLES['WLD-IB2'] = ['SAMN02028637', 'SAMN02028638', 'SAMN02028642', 'SAMN02028639', 'SAMN02028640', 'SAMN02028641']
 
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
@@ -134,27 +130,18 @@ class Sample_PairedEnd_Fastq(luigi.Task):
     """
     sample = luigi.Parameter()
 
-    def requires(self):
-        global PAIR1_URL, PAIR2_URL
-        # download the gzipped fastq files
-        return [Curl_Download(PAIR1_URL.format(sample=self.sample), "fastq/" + self.sample + "_1.fastq.gz"),
-                Curl_Download(PAIR2_URL.format(sample=self.sample), "fastq/" + self.sample + "_2.fastq.gz")]
-
     def output(self):
-        return [luigi.LocalTarget("fastq/" + self.sample + "_1.fastq"),
-                luigi.LocalTarget("fastq/" + self.sample + "_2.fastq")]
+        return [luigi.LocalTarget("fastq/" + self.sample + "_1.fastq.gz"),
+                luigi.LocalTarget("fastq/" + self.sample + "_2.fastq.gz")]
 
     def run(self):
-        # fetch the downloaded files
-        (pair1, pair2) = self.requires()
 
-        # unzip them
-        fastq1 = unzip_file(pair1.file)
-        fastq2 = unzip_file(pair2.file)
-
-        with self.output()[0].open('w') as fout1, self.output()[1].open('w') as fout2:
-            fout1.write(fastq1)
-            fout2.write(fastq2)
+        # NCBI SRA toolkit
+        run_cmd(["fastq-dump",
+                 "--gzip",              # outpute gzipped files
+                 "--split-files",       # split paired end files
+                 "--outdir", "./fastq", # output directory
+                 self.sample])
 
         print "====== Downloaded Paired-end FASTQ ======"
 
