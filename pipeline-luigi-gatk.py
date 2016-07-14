@@ -16,22 +16,22 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 INTERVAL_LIST = './targets.interval_list'
 
 # population, accession codes
-SAMPLES = dict()
+POPULATIONS = dict()
 
 # Wild mountain hare / Lepus timidus
-SAMPLES['OUT'] = ['SAMN02028643']
+POPULATIONS['OUT'] = ['SAMN02028643']
 
 # Domestic breeds
-SAMPLES['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
+POPULATIONS['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
 
 # Wild French
-SAMPLES['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
+POPULATIONS['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
 
 # Wild Iberian / Oryctolagus cuniculus algirus
-SAMPLES['WLD-IB1'] = ['SAMN02028631', 'SAMN02028632', 'SAMN02028634', 'SAMN02028633', 'SAMN02028635', 'SAMN02028636']
+POPULATIONS['WLD-IB1'] = ['SAMN02028631', 'SAMN02028632', 'SAMN02028634', 'SAMN02028633', 'SAMN02028635', 'SAMN02028636']
 
 # Wild Iberian / Oryctolagus cuniculus cuniculus
-SAMPLES['WLD-IB2'] = ['SAMN02028637', 'SAMN02028638', 'SAMN02028642', 'SAMN02028639', 'SAMN02028640', 'SAMN02028641']
+POPULATIONS['WLD-IB2'] = ['SAMN02028637', 'SAMN02028638', 'SAMN02028642', 'SAMN02028639', 'SAMN02028640', 'SAMN02028641']
 
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
@@ -377,14 +377,43 @@ class GATK_Variant_Call(luigi.Task):
 
         print "===== Converted BAM file to BCF ======="
 
+
+class Site_Frequency_Spectrum(luigi.Task):
+    """
+    Produce the site frequency spectrum, based on genotype calls from GATK HaplotypeCaller
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    intervallist = luigi.Parameter()
+
+    def requires(self):
+        for pop in self.populations:
+            yield GATK_Variant_Call(pop, self.populations[pop], self.genome, self.intervallist)
+
+    def output(self):
+        return luigi.LocalTarget("fsdata/" + self.genome + ".data")
+
+    def run(self):
+
+        # # log everything to file
+        # logging.basicConfig(filename="fsdata/" + self.genome + ".log", level=logging.DEBUG)
+        #
+        # # generate the frequency spectrum
+        # fsdata = generate_frequency_spectrum(self.populations)
+        #
+        # # save the fsdata file
+        # with self.output().open('w') as fout:
+        #     fout.write(fsdata)
+
+        print "===== Generated the site frequency spectrum  ======="
+
 class Custom_Genome_Pipeline(luigi.Task):
     """
     Run all the samples through the pipeline
     """
 
     def requires(self):
-        for population in SAMPLES:
-            yield GATK_Variant_Call(population, SAMPLES[population], GENOME, INTERVAL_LIST)
+        return Site_Frequency_Spectrum(POPULATIONS, GENOME, INTERVAL_LIST)
 
 if __name__=='__main__':
     luigi.run()
