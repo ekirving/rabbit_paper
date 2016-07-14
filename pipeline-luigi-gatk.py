@@ -12,6 +12,9 @@ from vcfparser import *
 GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
+# file containing the list of sequence capture regions, format <chr>:<start>-<stop>
+INTERVAL_LIST = './targets.interval_list'
+
 # Wild mountain hare / Lepus timidus
 OUTGROUP = 'SAMN02028643'
 
@@ -353,6 +356,7 @@ class GATK_Variant_Call(luigi.Task):
     population = luigi.Parameter()
     samples = luigi.ListParameter()
     genome = luigi.Parameter()
+    intervallist = luigi.Parameter()
 
     def requires(self):
         # reference genome must be properly indexed
@@ -375,7 +379,10 @@ class GATK_Variant_Call(luigi.Task):
                  "../GenomeAnalysisTK.jar",
                  "-T", "HaplotypeCaller",              # use the HaplotypeCaller to call variants
                  "-R", "fasta/" + self.genome + ".fa", # the indexed reference genome
+                 '--output_mode EMIT_ALL_SITES',       # produces calls at any callable site regardless of confidence
                  "--genotyping_mode", "DISCOVERY",     # variant discovery
+                 '--emitRefConfidence BP_RESOLUTION',  # reference model emitted site by site
+                 '-L', self.intervallist,              # limit to the given list of regions, <chr>:<start>-<stop>
                  "-stand_emit_conf", "10",             # min confidence threshold
                  "-stand_call_conf", "30",             # min call threshold
                  "-o", "vcf/" + self.population + ".vcf"]
@@ -390,7 +397,7 @@ class Custom_Genome_Pipeline(luigi.Task):
 
     def requires(self):
         for population in SAMPLES:
-            yield GATK_Variant_Call(population, SAMPLES[population], GENOME)
+            yield GATK_Variant_Call(population, SAMPLES[population], GENOME, INTERVAL_LIST)
 
 if __name__=='__main__':
     luigi.run()
