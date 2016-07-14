@@ -12,3 +12,5 @@ do
 
   printf "done!\n"
 done
+
+printf "FINISHED!\n"
