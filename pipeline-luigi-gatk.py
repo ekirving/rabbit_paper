@@ -40,6 +40,8 @@ DEFAULT_COMPRESSION = 6
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
+#  java flags for best performance
+JAVA_FLAGS = '-Xmx8G -Xms8G'
 
 def run_cmd(cmd):
     """
@@ -201,7 +203,7 @@ class Picard_CreateSequenceDictionary(luigi.Task):
         return luigi.LocalTarget("fasta/" + self.genome + ".fa")
 
     def run(self):
-        run_cmd(["java", "-jar",
+        run_cmd(["java", JAVA_FLAGS, "-jar",
                  "/usr/local/picard-tools-2.5.0/picard.jar",
                  "CreateSequenceDictionary",
                  "R=fasta/" + self.genome + ".fa",        # reference fasta file
@@ -304,7 +306,7 @@ class Picard_MarkDuplicates(luigi.Task):
         return luigi.LocalTarget("bam/" + self.sample + ".rmdup.bam")
 
     def run(self):
-        run_cmd(["java", "-jar",
+        run_cmd(["java", JAVA_FLAGS, "-jar",
                  "/usr/local/picard-tools-2.5.0/picard.jar",
                  "MarkDuplicates",
                  "INPUT=bam/" + self.sample + ".bam",
@@ -362,7 +364,7 @@ class GATK_Variant_Call(luigi.Task):
         # make the list of input files
         bamfiles = sum([["-I", "bam/" + sample + ".rmdup.bam"] for sample in self.samples], [])
 
-        run_cmd(["java", "-jar",
+        run_cmd(["java", JAVA_FLAGS, "-jar",
                  "../GenomeAnalysisTK.jar",
                  "-T", "HaplotypeCaller",                # use the HaplotypeCaller to call variants
                  "-R", "fasta/" + self.genome + ".fa",   # the indexed reference genome
