@@ -251,12 +251,12 @@ class Bwa_Mem(luigi.Task):
 
         # perform the alignment
         sam = run_cmd(["bwa",
-                       "mem",                                # align using the mem algorithm
-                       "-t", MAX_CPU_CORES,                  # number of cores
-                       "-R", readgroup,                      # readgroup metadata
-                       "fasta/" + self.genome + ".fa",       # reference genome
-                       "fastq/" + self.sample + "_1.fastq",  # pair 1
-                       "fastq/" + self.sample + "_2.fastq"]) # pair 2
+                       "mem",                                   # align using the mem algorithm
+                       "-t", MAX_CPU_CORES,                     # number of cores
+                       "-R", readgroup,                         # readgroup metadata
+                       "fasta/" + self.genome + ".fa",          # reference genome
+                       "fastq/" + self.sample + "_1.fastq.gz",  # pair 1
+                       "fastq/" + self.sample + "_2.fastq.gz"]) # pair 2
 
         # save the SAM file
         with self.output().open('w') as fout:
