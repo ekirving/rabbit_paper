@@ -380,8 +380,8 @@ class GATK_Variant_Call(luigi.Task):
                  "-T", "HaplotypeCaller",                # use the HaplotypeCaller to call variants
                  "-R", "fasta/" + self.genome + ".fa",   # the indexed reference genome
                  "--output_mode", "EMIT_ALL_SITES",      # produces calls at any callable site regardless of confidence
-                 "--genotyping_mode", "DISCOVERY",       # variant discovery
-                 "--emitRefConfidence", "BP_RESOLUTION", # reference model emitted site by site
+                 # "--genotyping_mode", "DISCOVERY",       # variant discovery
+                 # "--emitRefConfidence", "BP_RESOLUTION", # reference model emitted site by site
                  "-L", self.intervallist,                # limit to the given list of regions, <chr>:<start>-<stop>
                  "-stand_emit_conf", "10",               # min confidence threshold
                  "-stand_call_conf", "30",               # min call threshold
