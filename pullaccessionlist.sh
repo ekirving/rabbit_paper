@@ -5,6 +5,10 @@ readarray accessions < "$1"
 
 for var in "${accessions[@]}"
 do
-#  echo "${var}"
-  fastq-dump "${var//[[:space:]]/}"
+  printf "Downloading ${var}... "
+
+  # dump as fastq files, with paired-end reads in separate files
+  fastq-dump --gzip --split-files "${var//[[:space:]]/}"
+
+  printf "done!\n"
 done
