@@ -362,7 +362,7 @@ class GATK_Variant_Call(luigi.Task):
 
         # samples must be pre-processed
         for sample in self.samples:
-            yield Picard_MarkDuplicates(sample, self.genome)
+            yield Samtools_Index_Bam(sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("vcf/" + self.population + ".vcf")
