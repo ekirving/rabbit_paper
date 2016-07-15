@@ -306,6 +306,14 @@ class Picard_MarkDuplicates(luigi.Task):
         return luigi.LocalTarget("bam/" + self.sample + ".rmdup.bam")
 
     def run(self):
+
+        # https://broadinstitute.github.io/picard/command-line-overview.html#FixMateInformation
+        run_cmd(["java", "-jar",
+                 "/usr/local/picard-tools-2.5.0/picard.jar",
+                 "FixMateInformation",
+                 "INPUT=bam/" + self.sample + ".bam"])
+
+        # https://broadinstitute.github.io/picard/command-line-overview.html#MarkDuplicates
         run_cmd(["java", "-jar",
                  "/usr/local/picard-tools-2.5.0/picard.jar",
                  "MarkDuplicates",
