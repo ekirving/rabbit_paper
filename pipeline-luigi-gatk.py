@@ -13,25 +13,25 @@ GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
 
 # file containing the list of sequence capture regions, format <chr>:<start>-<stop>
-INTERVAL_LIST = './targets.interval_list'
+TARGETS = './targets.interval_list'
 
 # population, accession codes
 POPULATIONS = dict()
 
-# Wild mountain hare / Lepus timidus
-POPULATIONS['OUT'] = ['SRR824842']
+# # Wild mountain hare / Lepus timidus
+# POPULATIONS['OUT'] = ['SRR824842']
 
 # Domestic breeds
-POPULATIONS['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
+POPULATIONS['DOM'] = ['SRR997325','SRR997320'] #,'SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
 
-# Wild French
-POPULATIONS['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
-
-# Wild Iberian / Oryctolagus cuniculus algirus
-POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
-
-# Wild Iberian / Oryctolagus cuniculus cuniculus
-POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
+# # Wild French
+# POPULATIONS['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
+#
+# # Wild Iberian / Oryctolagus cuniculus algirus
+# POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
+#
+# # Wild Iberian / Oryctolagus cuniculus cuniculus
+# POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
 
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
@@ -343,47 +343,70 @@ class Samtools_Index_Bam(luigi.Task):
 
         print "==== Indexing CRAM ===="
 
-class GATK_Variant_Call(luigi.Task):
+class GATK_HaplotypeCaller(luigi.Task):
     """
-    Convert the BAM file into a BCF
+    Convert the BAM file into a gVCF
     """
-    population = luigi.Parameter()
-    samples = luigi.ListParameter()
+    sample = luigi.Parameter()
     genome = luigi.Parameter()
-    intervallist = luigi.Parameter()
+    targets = luigi.Parameter()
 
     def requires(self):
-        # reference genome must be properly indexed
-        yield Samtools_Faidx(self.genome)
-        yield Picard_CreateSequenceDictionary(self.genome)
-
-        # samples must be pre-processed
-        for sample in self.samples:
-            yield Samtools_Index_Bam(sample, self.genome)
+        return [Picard_CreateSequenceDictionary(self.genome),
+                Samtools_Faidx(self.genome),
+                Samtools_Index_Bam(self.sample, self.genome)]
 
     def output(self):
-        return luigi.LocalTarget("vcf/" + self.population + ".vcf")
+        return luigi.LocalTarget("vcf/" + self.sample + ".vcf")
 
     def run(self):
-
-        # make the list of input files
-        bamfiles = sum([["-I", "bam/" + sample + ".rmdup.bam"] for sample in self.samples], [])
 
         run_cmd(["java", "-Xmx8G", "-Xms8G", "-jar",
                  "../GenomeAnalysisTK.jar",
                  "-T", "HaplotypeCaller",                # use the HaplotypeCaller to call variants
                  "-R", "fasta/" + self.genome + ".fa",   # the indexed reference genome
+                 "--num_threads", MAX_CPU_CORES,         # number of data threads to allocate to this analysis
                  "--genotyping_mode", "DISCOVERY",       # variant discovery
-                 "--emitRefConfidence", "BP_RESOLUTION", # reference model emitted site by site
+                 "--emitRefConfidence", "GVCF",          # reference model emitted with condensed non-variant blocks
                  "--output_mode", "EMIT_ALL_SITES",      # produces calls at any callable site regardless of confidence
-                 "-L", self.intervallist,                # limit to the given list of regions, <chr>:<start>-<stop>
+                 "-L", self.targets,                     # limit to the list of regions defined in the targets file
                  "-stand_emit_conf", "10",               # min confidence threshold
                  "-stand_call_conf", "30",               # min call threshold
+                 "-I", "bam/" + self.sample + ".rmdup.bam",
+                 "-o", "vcf/" + self.sample + ".vcf"])
+
+        print "===== Created gVCF for sample ======="
+
+class GATK_GenotypeGVCFs(luigi.Task):
+    """
+    Joint genotype all the samples in a population
+    """
+    population = luigi.Parameter()
+    samples = luigi.ListParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+
+    def requires(self):
+        for sample in self.samples:
+            yield GATK_HaplotypeCaller(sample, self.genome, self.targets)
+
+    def output(self):
+        return luigi.LocalTarget("vcf/" + self.population + ".vcf")
+
+    def run(self):
+        # make a list of input files
+        vcf_files = sum([["-V", "vcf/" + sample + ".vcf"] for sample in self.samples], [])
+
+        run_cmd(["java", "-Xmx8G", "-Xms8G", "-jar",
+                 "../GenomeAnalysisTK.jar",
+                 "-T", "GenotypeGVCFs",                 # use GenotypeGVCFs to jointly call variants
+                 "--num_threads", MAX_CPU_CORES,        # number of data threads to allocate to this analysis
+                 "--includeNonVariantSites",            # include loci found to be non-variant after genotyping
+                 "-R", "fasta/" + self.genome + ".fa",  # the indexed reference genome
                  "-o", "vcf/" + self.population + ".vcf"]
-                + bamfiles)
+                + vcf_files)
 
-        print "===== Converted BAM file to BCF ======="
-
+        print "===== Joint genotyped population ======="
 
 class Site_Frequency_Spectrum(luigi.Task):
     """
@@ -391,11 +414,11 @@ class Site_Frequency_Spectrum(luigi.Task):
     """
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
-    intervallist = luigi.Parameter()
+    targets = luigi.Parameter()
 
     def requires(self):
         for pop in self.populations:
-            yield GATK_Variant_Call(pop, self.populations[pop], self.genome, self.intervallist)
+            yield GATK_GenotypeGVCFs(pop, self.populations[pop], self.genome, self.targets)
 
     def output(self):
         return luigi.LocalTarget("fsdata/" + self.genome + ".data")
@@ -420,7 +443,7 @@ class Custom_Genome_Pipeline(luigi.Task):
     """
 
     def requires(self):
-        return Site_Frequency_Spectrum(POPULATIONS, GENOME, INTERVAL_LIST)
+        return Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
 
 if __name__=='__main__':
     luigi.run()
