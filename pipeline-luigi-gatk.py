@@ -367,6 +367,8 @@ class GATK_HaplotypeCaller(luigi.Task):
                  "-R", "fasta/" + self.genome + ".fa",   # the indexed reference genome
                  "--genotyping_mode", "DISCOVERY",       # variant discovery
                  "--emitRefConfidence", "GVCF",          # reference model emitted with condensed non-variant blocks
+                 "-variant_index_type", "LINEAR",
+                 "-variant_index_parameter", "128000",
                  "--output_mode", "EMIT_ALL_SITES",      # produces calls at any callable site regardless of confidence
                  "-L", self.targets,                     # limit to the list of regions defined in the targets file
                  "-stand_emit_conf", "10",               # min confidence threshold
