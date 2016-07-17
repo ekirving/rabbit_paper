@@ -40,7 +40,7 @@ DEFAULT_COMPRESSION = 6
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
-#  java flags for best performance
+#  TODO java flags for best performance
 # JAVA_FLAGS = '-Xmx8G -Xms8G'
 
 def run_cmd(cmd):
@@ -376,9 +376,9 @@ class GATK_Variant_Call(luigi.Task):
                  "../GenomeAnalysisTK.jar",
                  "-T", "HaplotypeCaller",                # use the HaplotypeCaller to call variants
                  "-R", "fasta/" + self.genome + ".fa",   # the indexed reference genome
-                 "--output_mode", "EMIT_ALL_SITES",      # produces calls at any callable site regardless of confidence
-                 # "--genotyping_mode", "DISCOVERY",       # variant discovery
-                 # "--emitRefConfidence", "BP_RESOLUTION", # reference model emitted site by site
+                 "--genotyping_mode", "DISCOVERY",       # variant discovery
+                 "--emitRefConfidence", "BP_RESOLUTION", # reference model emitted site by site
+                 "--output_mode", "EMIT_ALL_SITES",  # produces calls at any callable site regardless of confidence
                  "-L", self.intervallist,                # limit to the given list of regions, <chr>:<start>-<stop>
                  "-stand_emit_conf", "10",               # min confidence threshold
                  "-stand_call_conf", "30",               # min call threshold
@@ -405,15 +405,15 @@ class Site_Frequency_Spectrum(luigi.Task):
 
     def run(self):
 
-        # # log everything to file
-        # logging.basicConfig(filename="fsdata/" + self.genome + ".log", level=logging.DEBUG)
-        #
-        # # generate the frequency spectrum
-        # fsdata = generate_frequency_spectrum(self.populations)
-        #
-        # # save the fsdata file
-        # with self.output().open('w') as fout:
-        #     fout.write(fsdata)
+        # log everything to file
+        logging.basicConfig(filename="fsdata/" + self.genome + ".log", level=logging.DEBUG)
+
+        # generate the frequency spectrum
+        fsdata = generate_frequency_spectrum(self.populations)
+
+        # save the fsdata file
+        with self.output().open('w') as fout:
+            fout.write(fsdata)
 
         print "===== Generated the site frequency spectrum  ======="
 
