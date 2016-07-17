@@ -365,7 +365,6 @@ class GATK_HaplotypeCaller(luigi.Task):
                  "../GenomeAnalysisTK.jar",
                  "-T", "HaplotypeCaller",                # use the HaplotypeCaller to call variants
                  "-R", "fasta/" + self.genome + ".fa",   # the indexed reference genome
-                 "--num_threads", MAX_CPU_CORES,         # number of data threads to allocate to this analysis
                  "--genotyping_mode", "DISCOVERY",       # variant discovery
                  "--emitRefConfidence", "GVCF",          # reference model emitted with condensed non-variant blocks
                  "--output_mode", "EMIT_ALL_SITES",      # produces calls at any callable site regardless of confidence
