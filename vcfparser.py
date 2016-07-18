@@ -61,7 +61,7 @@ def extract_variant_sites(population, samples, variants):
 
             # skip low coverage sites (average depth must be > 8x)
             if joint_depth/len(samples) < 8 and not is_outgroup:
-                logging.debug('{}\t{}\tLowDepth\t{}'.format(population, site, joint_depth))
+                logging.debug('{}\t{}\tLowDepth\t{}/{}'.format(population, site, joint_depth, len(samples)))
                 continue
 
             # get the reference allele
