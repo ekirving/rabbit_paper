@@ -28,7 +28,7 @@ def extract_variant_sites(population, samples, variants):
     # keep track of indels so we can filter SNPs within +/-10 bases
     indels = []
 
-    with open('./vcf/' + population + '.vcf.short', 'r') as infile:
+    with open('./vcf/' + population + '.vcf', 'r') as infile:
 
         # get the first line
         header = infile.readline()
@@ -144,7 +144,7 @@ def extract_variant_sites(population, samples, variants):
 
 def find_flanking_bases(variants):
 
-    with open('./vcf/OUT.vcf.short', 'r') as infile:
+    with open('./vcf/OUT.vcf', 'r') as infile:
 
         # skip over the block comments
         while infile.readline().startswith("##"):
