@@ -1,10 +1,11 @@
+#!/usr/bin/python
 """
 Custom VCF parser for generating a site frequency spectrum data file for consumption by dadi
 
 """
+
 import logging
 from collections import defaultdict
-import pprint
 
 # VCF column headers
 CHROM = 0
@@ -23,6 +24,9 @@ def extract_variant_sites(population, samples, variants):
 
     # is this the outgroup population (because we don't quality filer the outgroup)
     is_outgroup = (population == 'OUT')
+
+    # keep track of indels so we can filter SNPs within +/-10 bases
+    indels = []
 
     with open('./vcf/' + population + '.vcf.short', 'r') as infile:
 
@@ -81,6 +85,9 @@ def extract_variant_sites(population, samples, variants):
             # skip indels
             if len(ref) > 1 or len(alt) > 1:
                 logging.debug('{}\t{}\tInDel\t{}/{}'.format(population, site, ref, alt))
+
+                # remember where we found the indel
+                indels.append(site)
                 continue
 
             if site not in variants:
@@ -110,7 +117,7 @@ def extract_variant_sites(population, samples, variants):
                 # get the genotype for the sample
                 genotype = locus[columns.index(sample)].split(':')
 
-                # NOTE: Laurent says only filter on combined genotype
+                # TODO: Laurent says only filter on combined genotype
 
                 # # skip low coverage samples
                 # if int(genotype[DP]) < 8:
@@ -136,6 +143,19 @@ def extract_variant_sites(population, samples, variants):
                     # homozygous alternate
                     variants[site][alt][population] += 2
 
+    # filter sites within +/- 10 bases of each idels
+    for indel in indels:
+        chrom, pos = indel
+
+        # filter any site within 10 bases
+        sites = [(chrom, pos + offset) for offset in range(-10, 11)]
+
+        for site in sites:
+            # remove the current population, but leave the others
+            for allele in variants.get(site, []):
+                if population in variants[site][allele]:
+                    del variants[site][allele][population]
+                logging.debug('{}\t{}\tInDelProximity\t{}'.format(population, site, indel))
 
 def find_flanking_bases(variants):
 
@@ -205,9 +225,6 @@ def generate_frequency_spectrum(populations):
         # remember the ancestral allele
         variants[site]['alt'] = ancestral[0]
 
-        # TODO skip sites with < 5 sample coverage
-        # TODO skip sites within 10 bases of an INDEL
-
     # now we've whittled down the sites, lets find the flanking bases
     find_flanking_bases(variants)
 
@@ -230,7 +247,7 @@ def generate_frequency_spectrum(populations):
         for pop in pop_list:
             output += '{}\t'.format(pop)
 
-    output += 'Gene\tPosition\n'
+    output += 'Chrom\tPos\n'
 
     for site in site_list:
 
@@ -246,12 +263,11 @@ def generate_frequency_spectrum(populations):
         alt_lft = variants[site].pop('alt_lft', '-')
         alt_rgt = variants[site].pop('alt_rgt', '-')
 
-        # TODO get the flanking bases
+        # output the alleles and their flanking bases
         output += '{}{}{}\t'.format(ref_lft, ref, ref_rgt)
         output += '{}{}{}\t'.format(alt_lft, alt, alt_rgt)
 
         # make sure the ref allele is first in the list
-        # TODO not really necessary
         alleles = list(variants[site])
         alleles.insert(0, alleles.pop(alleles.index(ref)))
 
@@ -266,10 +282,6 @@ def generate_frequency_spectrum(populations):
 
         # output the chromosome and position of the SNP
         output += 'chr{}\t{}\n'.format(chrom, pos)
-
-
-    # pp = pprint.PrettyPrinter(depth=6)
-    # pp.pprint(variants)
 
     return output
 

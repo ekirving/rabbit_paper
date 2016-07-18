@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import luigi
 import multiprocessing
 import os
