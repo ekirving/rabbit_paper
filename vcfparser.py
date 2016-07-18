@@ -18,9 +18,13 @@ INFO = 7
 FORMAT = 8
 GENOTYPE = 9
 
+
 def extract_variant_sites(population, samples, variants):
 
-    with open('./vcf/' + population + '.vcf', 'r') as infile:
+    # is this the outgroup population (because we don't quality filer the outgroup)
+    is_outgroup = (population == 'OUT')
+
+    with open('./vcf/' + population + '.vcf.short', 'r') as infile:
 
         # get the first line
         header = infile.readline()
@@ -41,15 +45,30 @@ def extract_variant_sites(population, samples, variants):
             site = (locus[CHROM], locus[POS])
 
             # skip low quality sites
-            if locus[QUAL] != '.' and float(locus[QUAL]) < 30:
+            if 'LowQual' in locus[FILTER] and not is_outgroup:
                 logging.debug('{}\t{}\tLowQual\t{}'.format(population, site, locus[QUAL]))
+                continue
+
+            # extract the locus info
+            info = dict(item.split("=") for item in locus[INFO].split(";"))
+
+            # get the joint depth (handle sites with no coverage)
+            joint_depth = int(info['DP']) if 'DP' in info else 0
+
+            # skip low coverage sites (average depth must be > 8x)
+            if joint_depth/len(samples) < 8 and not is_outgroup:
+                logging.debug('{}\t{}\tLowDepth\t{}'.format(population, site, joint_depth))
                 continue
 
             # get the reference allele
             ref = locus[REF]
 
-            # get the alternatve allele, deal with the stupid <NON_REF> notation used by BP_RESOLUTION
-            alt_list = locus[ALT].split(',').remove('<NON_REF>')
+            # get the alternative allele(s)
+            alt_list = locus[ALT].split(',')
+
+            # deal with the stupid <NON_REF> notation used by BP_RESOLUTION... grrr...
+            if '<NON_REF>' in alt_list:
+                alt_list.remove('<NON_REF>')
 
             # skip polyallelic sites
             if len(alt_list) > 1:
@@ -68,17 +87,18 @@ def extract_variant_sites(population, samples, variants):
                 # initialise site locus dictionary
                 variants[site] = dict()
 
-            # initialise
             for allele in [ref, alt]:
+                # initialise the allele count dictionary
                 if allele not in variants[site]:
                     variants[site][allele] = defaultdict(int)
 
             # get the indices for the genotype column (e.g. GT:AD:DP:GQ:PL:SB)
             format = locus[FORMAT].split(':')
 
-            GT = format.index('GT')
-            DP = format.index('DP')
-            GQ = format.index('GQ')
+            GT = format.index('GT') # Genotype (1/1, 0/0, 0/1)
+            # AD = format.index('AD') # Allelic depths for the ref and alt alleles in the order listed
+            # DP = format.index('DP') # Approximate read depth (reads with MQ=255 or with bad mates are filtered)
+            # GQ = format.index('GQ') # Genotype Quality
 
             # populate the variant dictionary
             for sample in samples:
@@ -86,15 +106,17 @@ def extract_variant_sites(population, samples, variants):
                 # get the genotype for the sample
                 genotype = locus[columns.index(sample)].split(':')
 
-                # skip low coverage samples
-                if int(genotype[DP]) < 5:
-                    logging.debug('{}\t{}\tLowCoverage\t{}\t{}'.format(population, site, sample, genotype[DP]))
-                    continue
+                # NOTE: Laurent says only filter on combined genotype
 
-                # skip low quality samples
-                if int(genotype[GQ]) < 30:
-                    logging.debug('{}\t{}\tLowCoverage\t{}\t{}'.format(population, site, sample, genotype[DP]))
-                    continue
+                # # skip low coverage samples
+                # if int(genotype[DP]) < 8:
+                #     logging.debug('{}\t{}\tLowCoverage\t{}\t{}'.format(population, site, sample, genotype[DP]))
+                #     continue
+
+                # # skip low quality samples
+                # if int(genotype[GQ]) < 30:
+                #     logging.debug('{}\t{}\tLowQual\t{}\t{}'.format(population, site, sample, genotype[DP]))
+                #     continue
 
                 # count the observed alleles
                 if genotype[GT] == '0/0':
@@ -102,6 +124,11 @@ def extract_variant_sites(population, samples, variants):
                     variants[site][ref][population] += 2
 
                 elif genotype[GT] == '0/1':
+
+                    if is_outgroup:
+                        # skip het sites in the outgroup
+                        continue
+
                     # heterozygous
                     variants[site][ref][population] += 1
                     variants[site][alt][population] += 1
@@ -125,7 +152,6 @@ def generate_frequency_spectrum(populations):
     for pop in populations:
         extract_variant_sites(pop, populations[pop], variants)
 
-    # TODO skip het sites in outgroup
     # TODO skip hom sites
     # TODO skip sites with < 5 sample coverage
 
