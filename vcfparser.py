@@ -42,7 +42,7 @@ def extract_variant_sites(population, samples, variants):
             locus = line.split()
 
             # index by chromosome and position
-            site = (locus[CHROM], locus[POS])
+            site = (int(locus[CHROM]), int(locus[POS]))
 
             # skip low quality sites
             if 'LowQual' in locus[FILTER] and not is_outgroup:
@@ -87,6 +87,10 @@ def extract_variant_sites(population, samples, variants):
                 # initialise site locus dictionary
                 variants[site] = dict()
 
+            if 'ref' not in variants[site]:
+                # remember the reference allele
+                variants[site]['ref'] = ref
+
             for allele in [ref, alt]:
                 # initialise the allele count dictionary
                 if allele not in variants[site]:
@@ -124,11 +128,6 @@ def extract_variant_sites(population, samples, variants):
                     variants[site][ref][population] += 2
 
                 elif genotype[GT] == '0/1':
-
-                    if is_outgroup:
-                        # skip het sites in the outgroup
-                        continue
-
                     # heterozygous
                     variants[site][ref][population] += 1
                     variants[site][alt][population] += 1
@@ -137,9 +136,31 @@ def extract_variant_sites(population, samples, variants):
                     # homozygous alternate
                     variants[site][alt][population] += 2
 
+
+def find_flanking_bases(variants):
+    pass
+    # with open('./vcf/OUT.vcf.short', 'r') as infile:
+    #
+    #     # skip over the block comments
+    #     while infile.readline().startswith("##"):
+    #         pass
+    #
+    #     # check all the loci
+    #     for line in infile:
+    #
+    #         # convert string to list
+    #         locus = line.split()
+    #
+    #         # index by chromosome and position
+    #         leftflank = (locus[CHROM], string(locus[POS]))
+    #
+    #
+
+
+
 def generate_frequency_spectrum(populations):
     """
-    Generates the site frequency spectrum for a given set of samples
+    Generates the site frequency spectrum for a given set of populations
 
     :param populations: Dictionary of populations
     :return:
@@ -152,11 +173,82 @@ def generate_frequency_spectrum(populations):
     for pop in populations:
         extract_variant_sites(pop, populations[pop], variants)
 
-    # TODO skip hom sites
-    # TODO skip sites with < 5 sample coverage
+    # delete all the sites that don't conform to our requirements
+    for site in list(variants):
 
-    pp = pprint.PrettyPrinter(depth=6)
-    pp.pprint(variants)
+        # remove all non variant and pollyallelic sites (2 alleles + 1 reference = 3)
+        if len(variants[site]) != 3:
+            del variants[site]
+            continue
+
+        # find the ancestral allele(s)
+        ancestral = [allele for allele in variants[site] if 'OUT' in variants[site][allele]]
+
+        # skip all het sites in the outgroup and those without coverage
+        if len(ancestral) != 1:
+            del variants[site]
+            continue
+
+        # remember the ancestral allele
+        variants[site]['alt'] = ancestral[0]
+
+        # TODO skip sites with < 5 sample coverage
+        # TODO skip sites within 10 bases of an INDEL
+
+    # now we've whittled down the sites, lets find the flanking bases
+    find_flanking_bases(variants)
+
+    # convert to a list, because dictionaries are not sorted and we need the iteration to be consistent
+    site_list = list(variants)
+    site_list.sort()
+
+    pop_list = list(populations)
+    pop_list.sort()
+
+    # remove the pseudo-population OUT
+    pop_list.remove('OUT')
+
+    # start composing the output file
+    output = 'Rabbit\tHare\t'
+
+    for num in [1,2]:
+        output += 'Allele{}\t'.format(num)
+
+        for pop in pop_list:
+            output += '{}\t'.format(pop)
+
+    output += 'Gene\tPosition\n'
+
+    for site in site_list:
+
+        # get the chrom and pos
+        chrom, pos = site
+
+        # get the ref and alt alleles
+        ref = variants[site].pop('ref')
+        alt = variants[site].pop('alt')
+
+        # TODO get the flanking bases
+        output += '-{ref}-\t-{alt}-\t'.format(ref=ref, alt=alt)
+
+        # make sure the ref allele is first in the list
+        # TODO not really necessary
+        alleles = list(variants[site])
+        alleles.insert(0, alleles.pop(alleles.index(ref)))
+
+        # output each of the alleles
+        for allele in alleles:
+            output += '{}\t'.format(allele)
+
+            # output the allele count for each population
+            for pop in pop_list:
+                count = variants[site][allele][pop] if pop in variants[site][allele] else 0
+                output += '{}\t'.format(count)
+
+        # output the chromosome and position of the SNP
+        output += 'chr{}\t{}\n'.format(chrom, pos)
+
+    return output
 
 if __name__ == '__main__':
     # TODO remove when done testing
@@ -167,15 +259,15 @@ if __name__ == '__main__':
     POPULATIONS['OUT'] = ['SRR824842']
 
     # # Domestic breeds
-    POPULATIONS['DOM'] = ['SRR997325', 'SRR997320'] #, 'SRR997321', 'SRR997327', 'SRR997323', 'SRR997326', 'SRR997324', 'SRR997322']
-    #
-    # # Wild French
-    # POPULATIONS['WLD-FRE'] = ['SRR997319', 'SRR997317', 'SRR997304', 'SRR997303', 'SRR997318', 'SRR997316', 'SRR997305']
-    #
-    # # Wild Iberian / Oryctolagus cuniculus algirus
-    # POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
-    #
-    # # Wild Iberian / Oryctolagus cuniculus cuniculus
-    # POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
+    POPULATIONS['DOM'] = ['SRR997325', 'SRR997320', 'SRR997321', 'SRR997327', 'SRR997323', 'SRR997326', 'SRR997324', 'SRR997322']
+
+    # Wild French
+    POPULATIONS['WLD-FRE'] = ['SRR997319', 'SRR997317', 'SRR997304', 'SRR997303', 'SRR997318', 'SRR997316', 'SRR997305']
+
+    # Wild Iberian / Oryctolagus cuniculus algirus
+    POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
+
+    # Wild Iberian / Oryctolagus cuniculus cuniculus
+    POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
 
     print generate_frequency_spectrum(POPULATIONS)
