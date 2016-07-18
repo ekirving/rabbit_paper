@@ -42,7 +42,7 @@ def extract_variant_sites(population, samples, variants):
             locus = line.split()
 
             # index by chromosome and position
-            site = (int(locus[CHROM]), int(locus[POS]))
+            site = (locus[CHROM], int(locus[POS]))
 
             # skip low quality sites
             if 'LowQual' in locus[FILTER] and not is_outgroup:
@@ -138,24 +138,37 @@ def extract_variant_sites(population, samples, variants):
 
 
 def find_flanking_bases(variants):
-    pass
-    # with open('./vcf/OUT.vcf.short', 'r') as infile:
-    #
-    #     # skip over the block comments
-    #     while infile.readline().startswith("##"):
-    #         pass
-    #
-    #     # check all the loci
-    #     for line in infile:
-    #
-    #         # convert string to list
-    #         locus = line.split()
-    #
-    #         # index by chromosome and position
-    #         leftflank = (locus[CHROM], string(locus[POS]))
-    #
-    #
 
+    with open('./vcf/OUT.vcf.short', 'r') as infile:
+
+        # skip over the block comments
+        while infile.readline().startswith("##"):
+            pass
+
+        # check all the loci
+        for line in infile:
+
+            # convert string to list
+            locus = line.split()
+
+            # get the positions of the adjacent flanks
+            flank1 = (locus[CHROM], int(locus[POS]) - 1) # right flank
+            flank2 = (locus[CHROM], int(locus[POS]) + 1) # left flank
+
+            ref = locus[REF]
+            alt = locus[ALT].replace('<NON_REF>', ref).replace('*', ref)
+
+            # skip indels and pollyallelic sites
+            if len(ref) > 1 or len(alt) > 1:
+                continue
+
+            if flank1 in variants:
+                variants[flank1]['ref_rgt'] = ref
+                variants[flank1]['alt_rgt'] = alt
+
+            if flank2 in variants:
+                variants[flank2]['ref_lft'] = ref
+                variants[flank2]['alt_lft'] = alt
 
 
 def generate_frequency_spectrum(populations):
@@ -226,10 +239,16 @@ def generate_frequency_spectrum(populations):
 
         # get the ref and alt alleles
         ref = variants[site].pop('ref')
+        ref_lft = variants[site].pop('ref_lft', '-')
+        ref_rgt = variants[site].pop('ref_rgt', '-')
+
         alt = variants[site].pop('alt')
+        alt_lft = variants[site].pop('alt_lft', '-')
+        alt_rgt = variants[site].pop('alt_rgt', '-')
 
         # TODO get the flanking bases
-        output += '-{ref}-\t-{alt}-\t'.format(ref=ref, alt=alt)
+        output += '{}{}{}\t'.format(ref_lft, ref, ref_rgt)
+        output += '{}{}{}\t'.format(alt_lft, alt, alt_rgt)
 
         # make sure the ref allele is first in the list
         # TODO not really necessary
@@ -247,6 +266,10 @@ def generate_frequency_spectrum(populations):
 
         # output the chromosome and position of the SNP
         output += 'chr{}\t{}\n'.format(chrom, pos)
+
+
+    # pp = pprint.PrettyPrinter(depth=6)
+    # pp.pprint(variants)
 
     return output
 
