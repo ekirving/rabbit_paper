@@ -107,27 +107,12 @@ def extract_variant_sites(population, samples, variants):
             format = locus[FORMAT].split(':')
 
             GT = format.index('GT') # Genotype (1/1, 0/0, 0/1)
-            # AD = format.index('AD') # Allelic depths for the ref and alt alleles in the order listed
-            # DP = format.index('DP') # Approximate read depth (reads with MQ=255 or with bad mates are filtered)
-            # GQ = format.index('GQ') # Genotype Quality
 
             # populate the variant dictionary
             for sample in samples:
 
                 # get the genotype for the sample
                 genotype = locus[columns.index(sample)].split(':')
-
-                # TODO: Laurent says only filter on combined genotype
-
-                # # skip low coverage samples
-                # if int(genotype[DP]) < 8:
-                #     logging.debug('{}\t{}\tLowCoverage\t{}\t{}'.format(population, site, sample, genotype[DP]))
-                #     continue
-
-                # # skip low quality samples
-                # if int(genotype[GQ]) < 30:
-                #     logging.debug('{}\t{}\tLowQual\t{}\t{}'.format(population, site, sample, genotype[DP]))
-                #     continue
 
                 # count the observed alleles
                 if genotype[GT] == '0/0':
@@ -277,6 +262,8 @@ def generate_frequency_spectrum(populations):
 
             # output the allele count for each population
             for pop in pop_list:
+                # note that SNPs cannot be projected up, so SNPs without enough calls in any population will be ignored
+                # https://bitbucket.org/gutenkunstlab/dadi/wiki/DataFormats
                 count = variants[site][allele][pop] if pop in variants[site][allele] else 0
                 output += '{}\t'.format(count)
 
@@ -284,25 +271,3 @@ def generate_frequency_spectrum(populations):
         output += 'chr{}\t{}\n'.format(chrom, pos)
 
     return output
-
-if __name__ == '__main__':
-    # TODO remove when done testing
-    # population, accession codes
-    POPULATIONS = dict()
-
-    # Wild mountain hare / Lepus timidus
-    POPULATIONS['OUT'] = ['SRR824842']
-
-    # # Domestic breeds
-    POPULATIONS['DOM'] = ['SRR997325', 'SRR997320', 'SRR997321', 'SRR997327', 'SRR997323', 'SRR997326', 'SRR997324', 'SRR997322']
-
-    # Wild French
-    POPULATIONS['WLD-FRE'] = ['SRR997319', 'SRR997317', 'SRR997304', 'SRR997303', 'SRR997318', 'SRR997316', 'SRR997305']
-
-    # Wild Iberian / Oryctolagus cuniculus algirus
-    POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
-
-    # Wild Iberian / Oryctolagus cuniculus cuniculus
-    POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
-
-    print generate_frequency_spectrum(POPULATIONS)
