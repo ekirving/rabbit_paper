@@ -426,15 +426,15 @@ class Site_Frequency_Spectrum(luigi.Task):
 
     def run(self):
 
-        # # log everything to file
-        # logging.basicConfig(filename="fsdata/" + self.genome + ".log", level=logging.DEBUG)
-        #
-        # # generate the frequency spectrum
-        # fsdata = generate_frequency_spectrum(self.populations)
-        #
-        # # save the fsdata file
-        # with self.output().open('w') as fout:
-        #     fout.write(fsdata)
+        # log everything to file
+        logging.basicConfig(filename="fsdata/" + self.genome + ".log", level=logging.DEBUG)
+
+        # generate the frequency spectrum
+        fsdata = generate_frequency_spectrum(self.populations)
+
+        # save the fsdata file
+        with self.output().open('w') as fout:
+            fout.write(fsdata)
 
         print "===== Generated the site frequency spectrum  ======="
 
