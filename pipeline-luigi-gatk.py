@@ -412,7 +412,7 @@ class GATK_GenotypeGVCFs(luigi.Task):
 
 class Site_Frequency_Spectrum(luigi.Task):
     """
-    Produce the site frequency spectrum, based on genotype calls from GATK HaplotypeCaller
+    Produce the site frequency spectrum, based on genotype calls from GATK GenotypeGVCFs
     """
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
