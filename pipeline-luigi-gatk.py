@@ -462,7 +462,7 @@ class Plink_Make_Bed(luigi.Task):
                  "--recode",
                  "--const-fid", self.population,
                  "--biallelic-only", "strict",
-                 "--vcf-min-qual", 30,
+                 "--vcf-min-qual", 30, # TODO make this a global
                  "--vcf-require-gt",
                  "--vcf", "vcf/" + self.population + ".vcf",
                  "--out", "ped/" + self.population])
@@ -496,12 +496,27 @@ class Plink_Merge_Beds(luigi.Task):
             yield Plink_Make_Bed(pop, self.populations[pop], self.genome, self.targets)
 
     def output(self):
-        extensions = ['bed', 'bim', 'fam', 'log', 'nosex']
+        extensions = ['bed', 'bim', 'fam']
         return [luigi.LocalTarget("bed/" + self.genome + "." + ext) for ext in extensions]
 
     def run(self):
 
-        # run_cmd([""])
+        # merge requires for the first file to be named in the command
+        beds = list(self.populations.keys())
+        bed1 = beds.pop(0)
+
+        # make the merge list with the remaining BED files
+        with open("bed/bedfiles.list", 'w') as fout:
+            fout.write("\n".join(beds))
+
+        # compose the merge command, because we are going to need it twice
+        merge = ["plink,"
+                 "--make-bed",
+                 "--bfile", "bed/" + bed1,
+                 "--merge-list", "bed/bedfiles.list",
+	             "--out", "bed/" + self.genome]
+
+        run_cmd(merge)
 
         print "===== Merged BED files ======="
 
