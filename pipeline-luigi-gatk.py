@@ -497,7 +497,8 @@ class Custom_Genome_Pipeline(luigi.Task):
     """
 
     def requires(self):
-        return Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
+        yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
+        yield Plink_Merge_Beds(POPULATIONS, GENOME, TARGETS)
 
 if __name__=='__main__':
     luigi.run()
