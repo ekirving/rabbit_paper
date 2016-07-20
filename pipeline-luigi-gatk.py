@@ -463,7 +463,7 @@ class Plink_Make_Bed(luigi.Task):
                  "--biallelic-only", "strict",
                  # "--vcf-min-qual", 30,
                  # "--vcf-require-gt",
-                 "--vcf", "vcf/" + self.population + ".vcf"
+                 "--vcf", "vcf/" + self.population + ".vcf",
                  "--out", "bed/" + self.population])
 
         print "===== Created population BED file ======="
