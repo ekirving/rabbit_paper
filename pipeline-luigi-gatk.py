@@ -510,7 +510,7 @@ class Plink_Merge_Beds(luigi.Task):
             fout.write("\n".join(beds))
 
         # compose the merge command, because we are going to need it twice
-        merge = ["plink,",
+        merge = ["plink",
                  "--make-bed",
                  "--bfile", "bed/" + bed1,
                  "--merge-list", "bed/bedfiles.list",
