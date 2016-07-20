@@ -439,6 +439,58 @@ class Site_Frequency_Spectrum(luigi.Task):
 
         print "===== Generated the site frequency spectrum  ======="
 
+class Plink_Make_Bed(luigi.Task):
+    """
+    Convert a population gVCF into a BED file (binary pedigree)
+    """
+    population = luigi.Parameter()
+    samples = luigi.ListParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+
+    def requires(self):
+        yield GATK_GenotypeGVCFs(self.population, self.samples, self.genome, self.targets)
+
+    def output(self):
+        extensions = ['bed', 'bim', 'fam', 'log', 'nosex']
+        return [luigi.LocalTarget("bed/" + self.population + "." + ext) for ext in extensions]
+
+    def run(self):
+
+        run_cmd(["plink",
+                 "--make-bed",
+                 "--const-fid", self.population,
+                 "--biallelic-only", "strict",
+                 # "--vcf-min-qual", 30,
+                 # "--vcf-require-gt",
+                 "--vcf", "vcf/" + self.population + ".vcf"
+                 "--out", "bed/" + self.population])
+
+        print "===== Created population BED file ======="
+
+
+class Plink_Merge_Beds(luigi.Task):
+    """
+    Merge multiple BED files into one
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+
+    def requires(self):
+        for pop in self.populations:
+            yield Plink_Make_Bed(pop, self.populations[pop], self.genome, self.targets)
+
+    def output(self):
+        extensions = ['bed', 'bim', 'fam', 'log', 'nosex']
+        return [luigi.LocalTarget("bed/" + self.genome + "." + ext) for ext in extensions]
+
+    def run(self):
+
+        # run_cmd([""])
+
+        print "===== Merged BED files ======="
+
 class Custom_Genome_Pipeline(luigi.Task):
     """
     Run all the samples through the pipeline
