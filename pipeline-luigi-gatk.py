@@ -452,18 +452,31 @@ class Plink_Make_Bed(luigi.Task):
         yield GATK_GenotypeGVCFs(self.population, self.samples, self.genome, self.targets)
 
     def output(self):
-        extensions = ['bed', 'bim', 'fam', 'log', 'nosex']
+        extensions = ['bed', 'bim', 'fam']
         return [luigi.LocalTarget("bed/" + self.population + "." + ext) for ext in extensions]
 
     def run(self):
 
+        # convert VCF to PED
         run_cmd(["plink",
-                 "--make-bed",
+                 "--recode",
                  "--const-fid", self.population,
                  "--biallelic-only", "strict",
-                 # "--vcf-min-qual", 30,
-                 # "--vcf-require-gt",
+                 "--vcf-min-qual", 30,
+                 "--vcf-require-gt",
                  "--vcf", "vcf/" + self.population + ".vcf",
+                 "--out", "ped/" + self.population])
+
+        # add variant IDs, so we can identify pollyallelic sites during merge
+        run_cmd(["awk", "$2=$1'-'$4", "ped/" + self.population + ".map", ">", "ped/" + self.population + ".map.tmp"])
+
+        # replace the old map file
+        run_cmd(["mv", "-f", "ped/" + self.population + ".map.tmp", "ped/" + self.population + ".map"])
+
+        # convert PED to BED
+        run_cmd(["plink",
+                 "--make-bed",
+                 "--file", "ped/" + self.population,
                  "--out", "bed/" + self.population])
 
         print "===== Created population BED file ======="
