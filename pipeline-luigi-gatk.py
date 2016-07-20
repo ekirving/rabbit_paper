@@ -467,11 +467,12 @@ class Plink_Make_Bed(luigi.Task):
                  "--vcf", "vcf/" + self.population + ".vcf",
                  "--out", "ped/" + self.population])
 
-        # add variant IDs, so we can identify pollyallelic sites during merge
-        run_cmd(["awk '$2=$1\"-\"$4' ped/" + self.population + ".map > ped/" + self.population + ".map.tmp"])
+        # use awk to add variant IDs, so we can identify pollyallelic sites during merge
+        map = run_cmd(["awk", "$2=$1\"-\"$4", "ped/" + self.population + ".map"])
 
         # replace the old map file
-        run_cmd(["mv", "-f", "ped/" + self.population + ".map.tmp", "ped/" + self.population + ".map"])
+        with open("ped/" + self.population + ".map", 'w') as fout:
+            fout.write(map)
 
         # convert PED to BED
         run_cmd(["plink",
