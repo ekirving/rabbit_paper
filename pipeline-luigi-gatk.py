@@ -2,6 +2,7 @@
 import luigi
 import multiprocessing
 import os
+import os.path
 import subprocess
 
 # import the custom vcf parser
@@ -69,8 +70,7 @@ def run_cmd(cmd):
 
     # bail if something went wrong
     if proc.returncode:
-        print stderr
-        exit()
+        raise Exception(stderr)
 
     return stdout
 
@@ -501,7 +501,7 @@ class Plink_Merge_Beds(luigi.Task):
 
     def run(self):
 
-        # merge requires for the first file to be named in the command
+        # merge requires the first bed file to be named in the command
         beds = list(self.populations.keys())
         bed1 = beds.pop(0)
 
@@ -516,7 +516,25 @@ class Plink_Merge_Beds(luigi.Task):
                  "--merge-list", "bed/bedfiles.list",
 	             "--out", "bed/" + self.genome]
 
-        run_cmd(merge)
+        try:
+            # attempt the merge
+            run_cmd(merge)
+
+        except Exception as e:
+
+            # handle multiallelic loci
+            if os.path.isfile("bed/" + self.genome + "-merge.missnp") :
+
+                # filter all the BED files, using the missnp file created by the failed merge
+                for population in self.populations:
+                    run_cmd(["plink",
+                             "--make-bed",
+                             "--exclude", "bed/" + self.genome + "-merge.missnp",
+                             "--bfile", "bed/" + population,
+                             "--out", "bed/" + population])
+
+                # reattempt the merge
+                run_cmd(merge)
 
         print "===== Merged BED files ======="
 
