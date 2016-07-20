@@ -507,7 +507,7 @@ class Plink_Merge_Beds(luigi.Task):
 
         # make the merge list with the remaining BED files
         with open("bed/bedfiles.list", 'w') as fout:
-            fout.write("\n".join(beds))
+            fout.write("\n".join(["bed/" + bed for bed in beds]))
 
         # compose the merge command, because we are going to need it twice
         merge = ["plink",
