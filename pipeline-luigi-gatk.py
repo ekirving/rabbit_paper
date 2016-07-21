@@ -38,6 +38,9 @@ POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'S
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
 
+# the maximum number of ancestral populatons to run admiture for
+MAX_ANCESTRAL_K = 10
+
 # TODO find out how many workers there are
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
@@ -615,24 +618,27 @@ class Custom_Genome_Pipeline(luigi.Task):
     """
 
     def requires(self):
-        global POPULATIONS
 
         # make the SFS for dadi
         yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
 
         # run admixture for all the populations
-        for k in range(1, 11):
-            yield Admixture_K(POPULATIONS, GENOME, TARGETS, 'all-pops', k)
+        pops1 = POPULATIONS.copy()
 
-        # now without the outgroup
-        del POPULATIONS['OUT']
-        for k in range(1, 11):
-            yield Admixture_K(POPULATIONS, GENOME, TARGETS, 'all-except-out', k)
+        # and without the outgroup
+        pops2 = POPULATIONS.copy()
+        del pops2['OUT']
 
         # and again without either the outgroup or the most divergent wild species (O. cuniculus algirus)
-        del POPULATIONS['WLD-IB1']
-        for k in range(1, 11):
-            yield Admixture_K(POPULATIONS, GENOME, TARGETS, 'all-except-out-ib1', k)
+        pops3 = POPULATIONS.copy()
+        del pops3['OUT']
+        del pops3['WLD-IB1']
+
+        for k in range(1, MAX_ANCESTRAL_K + 1):
+            yield Admixture_K(pops1, GENOME, TARGETS, 'all-pops', k)
+            yield Admixture_K(pops2, GENOME, TARGETS, 'all-except-out', k)
+            yield Admixture_K(pops3, GENOME, TARGETS, 'all-except-out-ib1', k)
+
 
 if __name__=='__main__':
     luigi.run()
