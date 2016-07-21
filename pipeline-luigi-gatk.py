@@ -490,6 +490,7 @@ class Plink_Merge_Beds(luigi.Task):
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
     targets = luigi.Parameter()
+    label = luigi.Parameter()
 
     def requires(self):
         for pop in self.populations:
@@ -497,7 +498,7 @@ class Plink_Merge_Beds(luigi.Task):
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
-        return [luigi.LocalTarget("bed/" + self.genome + "." + ext) for ext in extensions]
+        return [luigi.LocalTarget("bed/" + self.label + "." + ext) for ext in extensions]
 
     def run(self):
 
@@ -514,8 +515,8 @@ class Plink_Merge_Beds(luigi.Task):
                  "--make-bed",
                  "--bfile", "bed/" + bed1,
                  "--merge-list", "bed/bedfiles.list",
-	             "--out", "bed/" + self.genome]
-
+                 "--out", "bed/" + self.label]
+    
         try:
             # attempt the merge
             run_cmd(merge)
@@ -523,20 +524,58 @@ class Plink_Merge_Beds(luigi.Task):
         except Exception as e:
 
             # handle multiallelic loci
-            if os.path.isfile("bed/" + self.genome + "-merge.missnp") :
+            if os.path.isfile("bed/" + self.label + "-merge.missnp") :
 
                 # filter all the BED files, using the missnp file created by the failed merge
                 for population in self.populations:
                     run_cmd(["plink",
                              "--make-bed",
-                             "--exclude", "bed/" + self.genome + "-merge.missnp",
+                             "--exclude", "bed/" + self.label + "-merge.missnp",
                              "--bfile", "bed/" + population,
                              "--out", "bed/" + population])
 
                 # reattempt the merge
                 run_cmd(merge)
 
+            else:
+                raise e
+
         print "===== Merged BED files ======="
+
+
+class Plink_Prune_Bed(luigi.Task):
+    """
+    Prune the genome BED file for linkage disequilibrium
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    label = luigi.Parameter()
+
+    def requires(self):
+        return Plink_Merge_Beds(self.populations, self.genome, self.targets, self.label)
+
+    def output(self):
+        extensions = ['bed', 'bim', 'fam']
+        return [luigi.LocalTarget("bed/" + self.label + ".pruned." + ext) for ext in extensions]
+
+    def run(self):
+
+        # calcualte the prune list (prune.in / prune.out)
+        run_cmd(["plink",
+                 "--indep-pairwise", 50, 10, 0.1,
+                 "--bfile", "bed/" + self.label,
+                 "--out", "bed/" + self.label])
+
+        # apply the prune list
+        run_cmd(["plink",
+                 "--make-bed",
+                 "--extract", "bed/" + self.label + ".prune.in",
+                 "--bfile", "bed/" + self.label,
+                 "--out", "bed/" + self.label + ".pruned"])
+
+        print "===== Pruned BED file ======="
+
 
 class Custom_Genome_Pipeline(luigi.Task):
     """
@@ -545,7 +584,19 @@ class Custom_Genome_Pipeline(luigi.Task):
 
     def requires(self):
         yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
-        yield Plink_Merge_Beds(POPULATIONS, GENOME, TARGETS)
+
+        yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-pops')
+
+        # drop the outgroup
+        POPULATIONS.pop('OUT')
+        yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-except-out')
+
+        # also drop the most divergent wild species (O. cuniculus algirus)
+        POPULATIONS.pop('WLD-IB1')
+        yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-except-out-ib1')
+
+
+
 
 if __name__=='__main__':
     luigi.run()
