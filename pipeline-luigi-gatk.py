@@ -498,8 +498,7 @@ class Plink_Exclude_Missnp(luigi.Task):
     suffix = luigi.Parameter()
 
     def requires(self):
-        for pop in self.populations:
-            yield Plink_Make_Bed(self.population, self.samples, self.genome, self.targets)
+        yield Plink_Make_Bed(self.population, self.samples, self.genome, self.targets)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
