@@ -507,14 +507,14 @@ class Plink_Merge_Beds(luigi.Task):
         bed1 = beds.pop(0)
 
         # make the merge list with the remaining BED files
-        with open("bed/bedfiles.list", 'w') as fout:
+        with open("bed/" + self.label + ".list", 'w') as fout:
             fout.write("\n".join(["bed/" + bed for bed in beds]))
 
         # compose the merge command, because we are going to need it twice
         merge = ["plink",
                  "--make-bed",
                  "--bfile", "bed/" + bed1,
-                 "--merge-list", "bed/bedfiles.list",
+                 "--merge-list", "bed/" + self.label + ".list",
                  "--out", "bed/" + self.label]
     
         try:
@@ -583,19 +583,19 @@ class Custom_Genome_Pipeline(luigi.Task):
     """
 
     def requires(self):
+        # make the SFS for dadi
         yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
 
+        # make a pruned bed for all the populations
         yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
-        # drop the outgroup
-        POPULATIONS.pop('OUT')
+        # make one without the outgroup
+        del POPULATIONS['OUT']
         yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-except-out')
 
-        # also drop the most divergent wild species (O. cuniculus algirus)
-        POPULATIONS.pop('WLD-IB1')
+        # and another wihtout either the outgroup or the most divergent wild species (O. cuniculus algirus)
+        del POPULATIONS['WLD-IB1']
         yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-except-out-ib1')
-
-
 
 
 if __name__=='__main__':
