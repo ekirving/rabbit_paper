@@ -680,7 +680,7 @@ class Custom_Genome_Pipeline(luigi.Task):
         del pops['no-out-ib1']['WLD-IB1']
 
         for label in pops:
-            # run admixture or each population and for multiple values of K
+            # run admixture or each population and each value of K
             for k in range(1, MAX_ANCESTRAL_K + 1):
                 yield Admixture_K(pops[label], GENOME, TARGETS, label, k)
 
