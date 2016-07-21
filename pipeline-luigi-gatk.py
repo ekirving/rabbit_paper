@@ -42,7 +42,6 @@ DEFAULT_COMPRESSION = 6
 # the maximum number of ancestral populatons to run admiture for
 MAX_ANCESTRAL_K = 10
 
-# TODO find out how many workers there are
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
@@ -624,6 +623,37 @@ class Admixture_K(luigi.Task):
 
         print "===== Admixture ======="
 
+class Flashpca(luigi.Task):
+    """
+    Run flashpca on the pruned BED files
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    label = luigi.Parameter()
+
+    def requires(self):
+        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.label)
+
+    def output(self):
+        prefixes = ['eigenvalues', 'eigenvectors', 'pcs', 'pve']
+        return [luigi.LocalTarget("flashpca/" + prefix + "_" + self.label + ".txt") for prefix in prefixes]
+
+    def run(self):
+
+        # flashpca only outputs to the current directory
+        os.chdir('./flashpca')
+
+        log = run_cmd(["flashpca",
+                       "--bfile", "../bed/" + self.label + ".pruned",
+                       "--numthreads", MAX_CPU_CORES,
+                       "--suffix", "_" + self.label + ".txt"])
+
+        # restore previous working directory
+        os.chdir('..')
+
+        print "===== Flashpca ======="
+
 
 class Custom_Genome_Pipeline(luigi.Task):
     """
@@ -650,8 +680,12 @@ class Custom_Genome_Pipeline(luigi.Task):
         del pops['no-out-ib1']['WLD-IB1']
 
         for label in pops:
+            # run admixture or each population and for multiple values of K
             for k in range(1, MAX_ANCESTRAL_K + 1):
                 yield Admixture_K(pops[label], GENOME, TARGETS, label, k)
+
+            # run flashpca for each population
+            yield Flashpca(pops[label], GENOME, TARGETS, label)
 
 
 if __name__=='__main__':
