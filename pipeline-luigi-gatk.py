@@ -506,9 +506,7 @@ class Plink_Merge_Beds(luigi.Task):
 
     def run(self):
 
-        pop_list = list(self.populations.keys())
-
-        # make a copy of the bed files because we'll probably need to filter them
+        # make a copy of the bed files because we'll need to filter them
         for pop in self.populations:
             for ext in ['bed', 'bim', 'fam']:
                 copyfile("bed/" + pop + "." + ext,
@@ -535,7 +533,7 @@ class Plink_Merge_Beds(luigi.Task):
 
         except Exception as e:
 
-            # handle multiallelic loci
+            # handle merge errors
             if os.path.isfile("bed/" + self.label + "-merge.missnp") :
 
                 # filter all the BED files, using the missnp file created by the failed merge
