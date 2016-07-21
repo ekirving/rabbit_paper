@@ -486,6 +486,35 @@ class Plink_Make_Bed(luigi.Task):
         print "===== Created population BED file ======="
 
 
+class Plink_Exclude_Missnp(luigi.Task):
+    """
+    Filter out invalid SNPs from a BED file
+    """
+    population = luigi.Parameter()
+    samples = luigi.ListParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    label = luigi.Parameter()
+    suffix = luigi.Parameter()
+
+    def requires(self):
+        for pop in self.populations:
+            yield Plink_Make_Bed(self.population, self.samples, self.genome, self.targets)
+
+    def output(self):
+        extensions = ['bed', 'bim', 'fam']
+        return [luigi.LocalTarget("bed/" + self.population + self.suffix + ext) for ext in extensions]
+
+    def run(self):
+
+        run_cmd(["plink",
+                 "--make-bed",
+                 "--exclude", "bed/" + self.label + "-merge.missnp",
+                 "--bfile", "bed/" + self.population,
+                 "--out", "bed/" + self.population + self.suffix])
+
+        print "===== Filtered MISSNP loci ======="
+
 class Plink_Merge_Beds(luigi.Task):
     """
     Merge multiple BED files into one
@@ -494,6 +523,7 @@ class Plink_Merge_Beds(luigi.Task):
     genome = luigi.Parameter()
     targets = luigi.Parameter()
     label = luigi.Parameter()
+    suffix = luigi.Parameter(default="")
 
     def requires(self):
         for pop in self.populations:
@@ -511,12 +541,12 @@ class Plink_Merge_Beds(luigi.Task):
 
         # make the merge list with the remaining BED files
         with open("bed/" + self.label + ".list", 'w') as fout:
-            fout.write("\n".join(["bed/" + bed for bed in beds]))
+            fout.write("\n".join(["bed/" + bed + self.suffix for bed in beds]))
 
         # compose the merge command, because we are going to need it twice
         merge = ["plink",
                  "--make-bed",
-                 "--bfile", "bed/" + bed1,
+                 "--bfile", "bed/" + bed1 + self.suffix,
                  "--merge-list", "bed/" + self.label + ".list",
                  "--out", "bed/" + self.label]
     
@@ -529,22 +559,20 @@ class Plink_Merge_Beds(luigi.Task):
             # handle multiallelic loci
             if os.path.isfile("bed/" + self.label + "-merge.missnp") :
 
+                # we need a unique suffix for each label run
+                suffix = "." + self.label + ".missnp"
+
                 # filter all the BED files, using the missnp file created by the failed merge
-                for population in self.populations:
-                    run_cmd(["plink",
-                             "--make-bed",
-                             "--exclude", "bed/" + self.label + "-merge.missnp",
-                             "--bfile", "bed/" + population,
-                             "--out", "bed/" + population])
+                for pop in self.populations:
+                    yield Plink_Exclude_Missnp(pop, self.populations[pop], self.genome, self.targets, self.label, suffix)
 
                 # reattempt the merge
-                run_cmd(merge)
+                yield Plink_Merge_Beds(self.populations, self.genome, self.targets, self.label, suffix)
 
             else:
                 raise Exception(e)
 
         print "===== Merged BED files ======="
-
 
 class Plink_Prune_Bed(luigi.Task):
     """
