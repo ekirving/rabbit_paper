@@ -541,7 +541,7 @@ class Plink_Merge_Beds(luigi.Task):
                 run_cmd(merge)
 
             else:
-                raise e
+                raise Exception(e)
 
         print "===== Merged BED files ======="
 
@@ -606,7 +606,7 @@ class Admixture_K(luigi.Task):
                        self.k])                             # for K ancestral populations
 
         # save the log file
-        with self.output()[3].open('w') as fout:
+        with self.output()[2].open('w') as fout:
             fout.write(log)
 
         print "===== Admixture ======="
