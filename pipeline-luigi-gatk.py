@@ -607,7 +607,7 @@ class Admixture_K(luigi.Task):
     def run(self):
 
         # admixture only outputs to the current directory
-        os.chdir('./admixture')
+        os.chdir('./admix')
 
         log = run_cmd(["admixture",
                        "-j{}".format(MAX_CPU_CORES),           # use multi-threading
