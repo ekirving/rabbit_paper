@@ -606,11 +606,17 @@ class Admixture_K(luigi.Task):
 
     def run(self):
 
+        # admixture only outputs to the current directory
+        os.chdir('./admixture')
+
         log = run_cmd(["admixture",
-                       "-j{}".format(MAX_CPU_CORES),        # use multi-threading
-                       "--cv",                              # include cross-validation standard errors
-                       "bed/" + self.label + ".pruned.bed", # using this input file
-                       self.k])                             # for K ancestral populations
+                       "-j{}".format(MAX_CPU_CORES),           # use multi-threading
+                       "--cv",                                 # include cross-validation standard errors
+                       "../bed/" + self.label + ".pruned.bed", # using this input file
+                       self.k])                                # for K ancestral populations
+
+        # restore previous working directory
+        os.chdir('..')
 
         # save the log file
         with self.output()[2].open('w') as fout:
