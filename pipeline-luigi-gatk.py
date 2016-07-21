@@ -577,6 +577,38 @@ class Plink_Prune_Bed(luigi.Task):
         print "===== Pruned BED file ======="
 
 
+class Admixture_K(luigi.Task):
+    """
+    Run admixture, with K ancentral populations, on the pruned BED files
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    label = luigi.Parameter()
+    k = luigi.Parameter()
+
+    def requires(self):
+        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.label)
+
+    def output(self):
+        extensions = ['P', 'Q', 'log']
+        return [luigi.LocalTarget("admix/" + self.label + "." + self.k + "." + ext) for ext in extensions]
+
+    def run(self):
+
+        log = run_cmd(["admixture",
+                       "-j{}".format(MAX_CPU_CORES),        # use multi-threading
+                       "--cv",                              # include cross-validation standard errors
+                       "bed/" + self.label + ".pruned.bed", # using this input file
+                       self.k])                             # for K ancestral populations
+
+        # save the log file
+        with self.output()[3].open('w') as fout:
+            fout.write(log)
+
+        print "===== Admixture ======="
+
+
 class Custom_Genome_Pipeline(luigi.Task):
     """
     Run all the samples through the pipeline
@@ -586,17 +618,19 @@ class Custom_Genome_Pipeline(luigi.Task):
         # make the SFS for dadi
         yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
 
-        # make a pruned bed for all the populations
-        yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-pops')
+        # run admixture for all the populations
+        for k in range(1, 11):
+            yield Admixture_K(POPULATIONS, GENOME, TARGETS, 'all-pops', k)
 
-        # make one without the outgroup
+        # now without the outgroup
         del POPULATIONS['OUT']
-        yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-except-out')
+        for k in range(1, 11):
+            yield Admixture_K(POPULATIONS, GENOME, TARGETS, 'all-except-out', k)
 
-        # and another wihtout either the outgroup or the most divergent wild species (O. cuniculus algirus)
+        # and again without either the outgroup or the most divergent wild species (O. cuniculus algirus)
         del POPULATIONS['WLD-IB1']
-        yield Plink_Prune_Bed(POPULATIONS, GENOME, TARGETS, 'all-except-out-ib1')
-
+        for k in range(1, 11):
+            yield Admixture_K(POPULATIONS, GENOME, TARGETS, 'all-except-out-ib1', k)
 
 if __name__=='__main__':
     luigi.run()
