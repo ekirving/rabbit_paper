@@ -615,6 +615,8 @@ class Custom_Genome_Pipeline(luigi.Task):
     """
 
     def requires(self):
+        global POPULATIONS
+
         # make the SFS for dadi
         yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
 
