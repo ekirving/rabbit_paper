@@ -592,7 +592,7 @@ class Admixture_K(luigi.Task):
 
     def output(self):
         extensions = ['P', 'Q', 'log']
-        return [luigi.LocalTarget("admix/" + self.label + "." + self.k + "." + ext) for ext in extensions]
+        return [luigi.LocalTarget("admix/" + self.label + "." + str(self.k) + "." + ext) for ext in extensions]
 
     def run(self):
 
