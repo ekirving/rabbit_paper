@@ -629,22 +629,23 @@ class Custom_Genome_Pipeline(luigi.Task):
         # make the SFS for dadi
         yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
 
+        pops = dict()
+
         # run admixture for all the populations
-        pops1 = POPULATIONS.copy()
+        pops['all-pops'] = POPULATIONS.copy()
 
         # and without the outgroup
-        pops2 = POPULATIONS.copy()
-        del pops2['OUT']
+        pops['no-outgroup'] = POPULATIONS.copy()
+        del pops['no-outgroup']['OUT']
 
         # and again without either the outgroup or the most divergent wild species (O. cuniculus algirus)
-        pops3 = POPULATIONS.copy()
-        del pops3['OUT']
-        del pops3['WLD-IB1']
+        pops['no-out-ib1'] = POPULATIONS.copy()
+        del pops['no-out-ib1']['OUT']
+        del pops['no-out-ib1']['WLD-IB1']
 
-        for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield Admixture_K(pops1, GENOME, TARGETS, 'all-pops', k)
-            yield Admixture_K(pops2, GENOME, TARGETS, 'all-except-out', k)
-            yield Admixture_K(pops3, GENOME, TARGETS, 'all-except-out-ib1', k)
+        for label in pops:
+            for k in range(1, MAX_ANCESTRAL_K + 1):
+                yield Admixture_K(pops[label], GENOME, TARGETS, label, k)
 
 
 if __name__=='__main__':
