@@ -19,21 +19,21 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 TARGETS = './targets.interval_list'
 
 # population, accession codes
-POPULATIONS = dict()
+POPULATIONS = dict() # (n=28)
 
-# Wild mountain hare / Lepus timidus
+# Wild mountain hare / Lepus timidus (n=1)
 POPULATIONS['OUT'] = ['SRR824842']
 
-# Domestic breeds
+# Domestic breeds (n=8)
 POPULATIONS['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
 
-# Wild French
+# Wild French (n=7)
 POPULATIONS['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
 
-# Wild Iberian / Oryctolagus cuniculus algirus
+# Wild Iberian / Oryctolagus cuniculus algirus (n=6)
 POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
 
-# Wild Iberian / Oryctolagus cuniculus cuniculus
+# Wild Iberian / Oryctolagus cuniculus cuniculus (n=6)
 POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
 
 # the samtools flag for BAM file comression
