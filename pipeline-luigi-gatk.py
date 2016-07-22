@@ -50,7 +50,7 @@ MAX_ANCESTRAL_K = 10
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
-def run_cmd(cmd):
+def run_cmd(cmd, shell=False):
     """
     Executes the given command in a system subprocess
 
@@ -66,7 +66,7 @@ def run_cmd(cmd):
 
     # run the command
     proc = subprocess.Popen(cmd,
-                            shell=False,
+                            shell=shell,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
 
@@ -714,7 +714,7 @@ class RScript_Ggplot(luigi.Task):
     def run(self):
 
         # use awk to add population and sample names, needed for the PCA plot
-        data = run_cmd(["awk '{print $1\"\t\"$2}' bed/no-outgroup.fam | paste - flashpca/pcs_no-outgroup.txt"])
+        data = run_cmd(["awk '{print $1\"\t\"$2}' bed/" + self.group + ".fam | paste - flashpca/pcs_" + self.group + ".txt"], True)
 
         # save the labeled file
         with self.output()[0].open('w') as fout:
@@ -724,7 +724,6 @@ class RScript_Ggplot(luigi.Task):
         run_cmd(["Rscript",
                  "flashpca.R",
                  "flashpca/pca_" + self.group])
-
 
         print "===== RScript ggplot ======="
 
@@ -759,7 +758,7 @@ class Custom_Genome_Pipeline(luigi.Task):
                 yield Admixture_K(groups[group], GENOME, TARGETS, group, k)
 
             # run flashpca for each population
-            yield Flashpca(groups[group], GENOME, TARGETS, group)
+            yield RScript_Ggplot(groups[group], GENOME, TARGETS, group)
 
 
 if __name__=='__main__':

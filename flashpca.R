@@ -12,7 +12,6 @@ col=c("#524FA1", "#FDB913", "lightgreen", "#00ADDC", "Darkgreen", "#ED1C24", "Bl
 names(t1)[1]<-paste("Population")
 
 alpha=c(1, 1, 1, 0.1, 1, 1, 1, 1, 1, 1, 1, 1)
-png(filename=paste(pcaname, "png", sep = "."), width = 1024, height = 768, pointsize=16)
 pdf(file=paste(pcaname, "pdf", sep = "."), width = 10, height = 7)
 ggplot(t1, aes(V3, V4)) + aes(shape=factor(Population)) + scale_shape_manual(values=v) + geom_point(aes(colour = factor(Population)), size=3, alpha=1) +  xlab("PC1") + ylab("PC2") + scale_colour_manual(values=col) + theme_bw() + theme(legend.title=element_blank(), legend.key = element_blank()) + guides(colour = guide_legend(override.aes = list(size=4)))
 dev.off()
