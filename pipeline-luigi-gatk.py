@@ -5,6 +5,8 @@ import os
 import os.path
 import subprocess
 from shutil import copyfile
+import glob
+import random
 
 # import the custom vcf parser
 from vcfparser import *
@@ -38,6 +40,9 @@ POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'S
 
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
+
+# the minimum phred scaled genotype quality (30 = 99.9%)
+MIN_GENOTYPE_QUAL = 30
 
 # the maximum number of ancestral populatons to run admiture for
 MAX_ANCESTRAL_K = 10
@@ -376,7 +381,7 @@ class GATK_HaplotypeCaller(luigi.Task):
                  "--output_mode", "EMIT_ALL_SITES",      # produces calls at any callable site regardless of confidence
                  "-L", self.targets,                     # limit to the list of regions defined in the targets file
                  "-stand_emit_conf", "10",               # min confidence threshold
-                 "-stand_call_conf", "30",               # min call threshold
+                 "-stand_call_conf", MIN_GENOTYPE_QUAL,  # min call threshold
                  "-I", "bam/" + self.sample + ".rmdup.bam",
                  "-o", "vcf/" + self.sample + ".vcf"])
 
@@ -465,7 +470,7 @@ class Plink_Make_Bed(luigi.Task):
                  "--recode",
                  "--const-fid", self.population,
                  "--biallelic-only", "strict",
-                 "--vcf-min-qual", 30, # TODO make this a global
+                 "--vcf-min-qual", MIN_GENOTYPE_QUAL,
                  "--vcf-require-gt",
                  "--vcf", "vcf/" + self.population + ".vcf",
                  "--out", "ped/" + self.population])
@@ -505,24 +510,27 @@ class Plink_Merge_Beds(luigi.Task):
 
     def run(self):
 
+        # generate a unique suffix for temporary files
+        suffix = 'tmp' + str(random.getrandbits(100))
+
         # make a copy of the bed files because we'll need to filter them
         for pop in self.populations:
             for ext in ['bed', 'bim', 'fam']:
                 copyfile("bed/" + pop + "." + ext,
-                         "bed/" + pop + "." + self.label + "." + ext,)
+                         "bed/" + pop + "." + suffix + "." + ext)
 
         # merge requires the first bed file to be named in the command
-        beds = ["bed/" + pop + "." + self.label for pop in self.populations]
-        bed1 = beds.pop(0)
+        bed_files = ["bed/" + pop + "." + suffix for pop in self.populations]
+        bed_file1 = bed_files.pop(0)
 
         # make the merge-list with the remaining BED files
         with open("bed/" + self.label + ".list", 'w') as fout:
-            fout.write("\n".join(beds))
+            fout.write("\n".join(bed_files))
 
         # compose the merge command, because we are going to need it twice
         merge = ["plink",
                  "--make-bed",
-                 "--bfile", bed1,
+                 "--bfile", bed_file1,
                  "--merge-list", "bed/" + self.label + ".list",
                  "--out", "bed/" + self.label]
 
@@ -540,14 +548,18 @@ class Plink_Merge_Beds(luigi.Task):
                     run_cmd(["plink",
                              "--make-bed",
                              "--exclude", "bed/" + self.label + "-merge.missnp",
-                             "--bfile", "bed/" + pop + "." + self.label,
-                             "--out", "bed/" + pop + "." + self.label])
+                             "--bfile", "bed/" + pop + "." + suffix,
+                             "--out", "bed/" + pop + "." + suffix])
 
                 # reattempt the merge
                 run_cmd(merge)
 
             else:
                 raise Exception(e)
+
+        # tidy up all the temporary intermediate files
+        for tmp in glob.glob("./bed/*{}*".format(suffix)):
+            os.remove(tmp)
 
         print "===== Merged BED files ======="
 

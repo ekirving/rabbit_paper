@@ -7,6 +7,9 @@ Custom VCF parser for generating a site frequency spectrum data file for consump
 import logging
 from collections import defaultdict
 
+# the minimum depth of coverage for a site
+MIN_COVERAGE_DEPTH = 8
+
 # VCF column headers
 CHROM = 0
 POS = 1
@@ -18,7 +21,6 @@ FILTER = 6
 INFO = 7
 FORMAT = 8
 GENOTYPE = 9
-
 
 def extract_variant_sites(population, samples, variants):
 
@@ -59,8 +61,8 @@ def extract_variant_sites(population, samples, variants):
             # get the joint depth (handle sites with no coverage)
             joint_depth = int(info['DP']) if 'DP' in info else 0
 
-            # skip low coverage sites (average depth must be > 8x)
-            if joint_depth/len(samples) < 8 and not is_outgroup:
+            # skip low coverage sites (average depth must be > MIN_COVERAGE_DEPTH)
+            if joint_depth/len(samples) < MIN_COVERAGE_DEPTH and not is_outgroup:
                 logging.debug('{}\t{}\tLowDepth\t{}/{}'.format(population, site, joint_depth, len(samples)))
                 continue
 
