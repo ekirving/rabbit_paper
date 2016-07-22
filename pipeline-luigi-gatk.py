@@ -662,6 +662,8 @@ class Admixture_K(luigi.Task):
         with self.output()[2].open('w') as fout:
             fout.write(log)
 
+        # TODO plot the admixture stacked column chart
+
         print "===== Admixture ======="
 
 class Flashpca(luigi.Task):
@@ -695,9 +697,9 @@ class Flashpca(luigi.Task):
 
         print "===== Flashpca ======="
 
-class RScript_Ggplot(luigi.Task):
+class RScript_Ggplot_PCA(luigi.Task):
     """
-    Create a ggplot of the PCA
+    Use ggplot to plot the PCA
     """
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
@@ -770,6 +772,8 @@ class RScript_Tree(luigi.Task):
                  "tree/" + self.group + ".data",
                  "tree/" + self.group + ".tree"])
 
+        # TODO plot the tree with either ggtree or ape, reusing the colour scheme from the PCA
+
         print "===== RScript tree ======="
 
 class Custom_Genome_Pipeline(luigi.Task):
@@ -803,7 +807,7 @@ class Custom_Genome_Pipeline(luigi.Task):
                 yield Admixture_K(groups[group], GENOME, TARGETS, group, k)
 
             # run flashpca for each population
-            yield RScript_Ggplot(groups[group], GENOME, TARGETS, group)
+            yield RScript_Ggplot_PCA(groups[group], GENOME, TARGETS, group)
 
         yield RScript_Tree(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
