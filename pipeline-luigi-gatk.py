@@ -498,7 +498,7 @@ class Plink_Merge_Beds(luigi.Task):
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
     targets = luigi.Parameter()
-    label = luigi.Parameter()
+    group = luigi.Parameter()
 
     def requires(self):
         for pop in self.populations:
@@ -506,7 +506,7 @@ class Plink_Merge_Beds(luigi.Task):
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
-        return [luigi.LocalTarget("bed/" + self.label + "." + ext) for ext in extensions]
+        return [luigi.LocalTarget("bed/" + self.group + "." + ext) for ext in extensions]
 
     def run(self):
 
@@ -524,15 +524,15 @@ class Plink_Merge_Beds(luigi.Task):
         bed_file1 = bed_files.pop(0)
 
         # make the merge-list with the remaining BED files
-        with open("bed/" + self.label + ".list", 'w') as fout:
+        with open("bed/" + self.group + ".list", 'w') as fout:
             fout.write("\n".join(bed_files))
 
         # compose the merge command, because we are going to need it twice
         merge = ["plink",
                  "--make-bed",
                  "--bfile", bed_file1,
-                 "--merge-list", "bed/" + self.label + ".list",
-                 "--out", "bed/" + self.label]
+                 "--merge-list", "bed/" + self.group + ".list",
+                 "--out", "bed/" + self.group]
 
         try:
             # attempt the merge
@@ -541,13 +541,13 @@ class Plink_Merge_Beds(luigi.Task):
         except Exception as e:
 
             # handle merge errors
-            if os.path.isfile("bed/" + self.label + "-merge.missnp") :
+            if os.path.isfile("bed/" + self.group + "-merge.missnp") :
 
                 # filter all the BED files, using the missnp file created by the failed merge
                 for pop in self.populations:
                     run_cmd(["plink",
                              "--make-bed",
-                             "--exclude", "bed/" + self.label + "-merge.missnp",
+                             "--exclude", "bed/" + self.group + "-merge.missnp",
                              "--bfile", "bed/" + pop + "." + suffix,
                              "--out", "bed/" + pop + "." + suffix])
 
@@ -571,29 +571,29 @@ class Plink_Prune_Bed(luigi.Task):
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
     targets = luigi.Parameter()
-    label = luigi.Parameter()
+    group = luigi.Parameter()
 
     def requires(self):
-        return Plink_Merge_Beds(self.populations, self.genome, self.targets, self.label)
+        return Plink_Merge_Beds(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
-        return [luigi.LocalTarget("bed/" + self.label + ".pruned." + ext) for ext in extensions]
+        return [luigi.LocalTarget("bed/" + self.group + ".pruned." + ext) for ext in extensions]
 
     def run(self):
 
         # calcualte the prune list (prune.in / prune.out)
         run_cmd(["plink",
                  "--indep-pairwise", 50, 10, 0.1,
-                 "--bfile", "bed/" + self.label,
-                 "--out", "bed/" + self.label])
+                 "--bfile", "bed/" + self.group,
+                 "--out", "bed/" + self.group])
 
         # apply the prune list
         run_cmd(["plink",
                  "--make-bed",
-                 "--extract", "bed/" + self.label + ".prune.in",
-                 "--bfile", "bed/" + self.label,
-                 "--out", "bed/" + self.label + ".pruned"])
+                 "--extract", "bed/" + self.group + ".prune.in",
+                 "--bfile", "bed/" + self.group,
+                 "--out", "bed/" + self.group + ".pruned"])
 
         print "===== Pruned BED file ======="
 
@@ -605,15 +605,15 @@ class Admixture_K(luigi.Task):
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
     targets = luigi.Parameter()
-    label = luigi.Parameter()
+    group = luigi.Parameter()
     k = luigi.Parameter()
 
     def requires(self):
-        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.label)
+        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         extensions = ['P', 'Q', 'log']
-        return [luigi.LocalTarget("admix/" + self.label + ".pruned." + str(self.k) + "." + ext) for ext in extensions]
+        return [luigi.LocalTarget("admix/" + self.group + ".pruned." + str(self.k) + "." + ext) for ext in extensions]
 
     def run(self):
 
@@ -623,7 +623,7 @@ class Admixture_K(luigi.Task):
         log = run_cmd(["admixture",
                        "-j{}".format(MAX_CPU_CORES),           # use multi-threading
                        "--cv",                                 # include cross-validation standard errors
-                       "../bed/" + self.label + ".pruned.bed", # using this input file
+                       "../bed/" + self.group + ".pruned.bed", # using this input file
                        self.k])                                # for K ancestral populations
 
         # restore previous working directory
@@ -642,14 +642,14 @@ class Flashpca(luigi.Task):
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
     targets = luigi.Parameter()
-    label = luigi.Parameter()
+    group = luigi.Parameter()
 
     def requires(self):
-        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.label)
+        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         prefixes = ['eigenvalues', 'eigenvectors', 'pcs', 'pve']
-        return [luigi.LocalTarget("flashpca/" + prefix + "_" + self.label + ".txt") for prefix in prefixes]
+        return [luigi.LocalTarget("flashpca/" + prefix + "_" + self.group + ".txt") for prefix in prefixes]
 
     def run(self):
 
@@ -657,9 +657,9 @@ class Flashpca(luigi.Task):
         os.chdir('./flashpca')
 
         log = run_cmd(["flashpca",
-                       "--bfile", "../bed/" + self.label + ".pruned",
+                       "--bfile", "../bed/" + self.group + ".pruned",
                        "--numthreads", MAX_CPU_CORES,
-                       "--suffix", "_" + self.label + ".txt"])
+                       "--suffix", "_" + self.group + ".txt"])
 
         # restore previous working directory
         os.chdir('..')
@@ -677,27 +677,28 @@ class Custom_Genome_Pipeline(luigi.Task):
         # make the SFS for dadi
         yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
 
-        pops = dict()
+        # setup some population groups
+        groups = dict()
 
-        # run admixture for all the populations
-        pops['all-pops'] = POPULATIONS.copy()
+        # one with all the populations
+        groups['all-pops'] = POPULATIONS.copy()
 
-        # and without the outgroup
-        pops['no-outgroup'] = POPULATIONS.copy()
-        del pops['no-outgroup']['OUT']
+        # and one without the outgroup
+        groups['no-outgroup'] = POPULATIONS.copy()
+        del groups['no-outgroup']['OUT']
 
-        # and again without either the outgroup or the most divergent wild species (O. cuniculus algirus)
-        pops['no-out-ib1'] = POPULATIONS.copy()
-        del pops['no-out-ib1']['OUT']
-        del pops['no-out-ib1']['WLD-IB1']
+        # and one without either the outgroup or the most divergent wild species (O. cuniculus algirus)
+        groups['no-out-ib1'] = POPULATIONS.copy()
+        del groups['no-out-ib1']['OUT']
+        del groups['no-out-ib1']['WLD-IB1']
 
-        for label in pops:
+        for group in groups:
             # run admixture or each population and each value of K
             for k in range(1, MAX_ANCESTRAL_K + 1):
-                yield Admixture_K(pops[label], GENOME, TARGETS, label, k)
+                yield Admixture_K(groups[group], GENOME, TARGETS, group, k)
 
             # run flashpca for each population
-            yield Flashpca(pops[label], GENOME, TARGETS, label)
+            yield Flashpca(groups[group], GENOME, TARGETS, group)
 
 
 if __name__=='__main__':
