@@ -695,6 +695,38 @@ class Flashpca(luigi.Task):
 
         print "===== Flashpca ======="
 
+class RScript_Ggplot(luigi.Task):
+    """
+    Create a ggplot of the PCA
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    group = luigi.Parameter()
+
+    def requires(self):
+        return Flashpca(self.populations, self.genome, self.targets, self.group)
+
+    def output(self):
+        extensions = ['data', 'pdf']
+        return [luigi.LocalTarget("flashpca/pca_" + self.group + "." + ext) for ext in extensions]
+
+    def run(self):
+
+        # use awk to add population and sample names, needed for the PCA plot
+        data = run_cmd(["awk '{print $1\"\t\"$2}' bed/no-outgroup.fam | paste - flashpca/pcs_no-outgroup.txt"])
+
+        # save the labeled file
+        with self.output()[0].open('w') as fout:
+            fout.write(data)
+
+        # generate a PNG of the PCA plot
+        run_cmd(["Rscript",
+                 "flashpca.R",
+                 "flashpca/pca_" + self.group])
+
+
+        print "===== RScript ggplot ======="
 
 class Custom_Genome_Pipeline(luigi.Task):
     """
