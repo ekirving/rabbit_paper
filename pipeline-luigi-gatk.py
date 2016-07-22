@@ -447,6 +447,35 @@ class Site_Frequency_Spectrum(luigi.Task):
 
         print "===== Generated the site frequency spectrum  ======="
 
+class GATK_SelectVariants(luigi.Task):
+    """
+    Select only biallelic variant sites for downstream analysis
+    """
+    population = luigi.Parameter()
+    samples = luigi.ListParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+
+    def requires(self):
+        yield GATK_GenotypeGVCFs(self.population, self.samples, self.genome, self.targets)
+
+    def output(self):
+        return luigi.LocalTarget("vcf/" + self.population + ".variant.vcf")
+
+    def run(self):
+
+        run_cmd(["java", "-Xmx2g", "-jar",
+                 "../GenomeAnalysisTK.jar",
+                 "-T", "SelectVariants",
+                 "-R", "fasta/" + self.genome + ".fa",
+                 "-V", "vcf/" + self.population + ".vcf",
+                 "-o", "vcf/" + self.population + ".variant.vcf",
+                 "--selectTypeToInclude", "SNP",
+                 "--restrictAllelesTo", "BIALLELIC"])
+
+        print "===== Selected variant sites ======="
+
+
 class Plink_Make_Bed(luigi.Task):
     """
     Convert a population gVCF into a BED file (binary pedigree)
@@ -457,7 +486,7 @@ class Plink_Make_Bed(luigi.Task):
     targets = luigi.Parameter()
 
     def requires(self):
-        yield GATK_GenotypeGVCFs(self.population, self.samples, self.genome, self.targets)
+        yield GATK_SelectVariants(self.population, self.samples, self.genome, self.targets)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -472,7 +501,7 @@ class Plink_Make_Bed(luigi.Task):
                  "--biallelic-only", "strict",
                  "--vcf-min-qual", MIN_GENOTYPE_QUAL,
                  "--vcf-require-gt",
-                 "--vcf", "vcf/" + self.population + ".vcf",
+                 "--vcf", "vcf/" + self.population + ".variant.vcf",
                  "--out", "ped/" + self.population])
 
         # use awk to add variant IDs, so we can identify pollyallelic sites during merge
