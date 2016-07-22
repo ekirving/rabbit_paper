@@ -727,6 +727,51 @@ class RScript_Ggplot(luigi.Task):
 
         print "===== RScript ggplot ======="
 
+class RScript_Tree(luigi.Task):
+    """
+    Create a phylogenetic tree from a pruned BED file
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    group = luigi.Parameter()
+
+    def requires(self):
+        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.group)
+
+    def output(self):
+        return luigi.LocalTarget("tree/" + self.group + ".tree")
+
+    def run(self):
+
+        # make the distance matrix
+        run_cmd(["plink",
+                 "--distance", "square", "1-ibs",
+                 "--bfile", "bed/" + self.group + ".pruned",
+                 "--out", "tree/" + self.group])
+
+        # use awk to extract short versions of the pop and sample names
+        awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' ./bed/" + self.group + ".fam"
+
+        # fetch the names as a row
+        header = run_cmd([awk + " | xargs"], True)
+
+        # add the samples names as a column to the mdist data
+        data = run_cmd([awk + " | paste - ./bed/" + self.group + ".mdist"], True)
+
+        # save the labeled file
+        with open("tree/" + self.group + ".data", 'w') as fout:
+            fout.write("\t"+header)
+            fout.write(data)
+
+        # generate a tree from the labeled data
+        run_cmd(["Rscript",
+                 "tree.R",
+                 "tree/" + self.group + ".data",
+                 "tree/" + self.group + ".tree"])
+
+        print "===== RScript tree ======="
+
 class Custom_Genome_Pipeline(luigi.Task):
     """
     Run all the samples through the pipeline
@@ -760,6 +805,7 @@ class Custom_Genome_Pipeline(luigi.Task):
             # run flashpca for each population
             yield RScript_Ggplot(groups[group], GENOME, TARGETS, group)
 
+        yield RScript_Tree(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
 if __name__=='__main__':
     luigi.run()
