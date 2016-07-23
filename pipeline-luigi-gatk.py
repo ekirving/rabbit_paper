@@ -7,6 +7,7 @@ import subprocess
 from shutil import copyfile
 import glob
 import random
+import re
 
 # import the custom vcf parser
 from vcfparser import *
@@ -629,7 +630,7 @@ class Plink_Prune_Bed(luigi.Task):
 
 class Admixture_K(luigi.Task):
     """
-    Run admixture, with K ancentral populations, on the pruned BED files
+    Run admixture, with K ancestral populations, on the pruned BED files
     """
     populations = luigi.DictParameter()
     genome = luigi.Parameter()
@@ -662,7 +663,7 @@ class Admixture_K(luigi.Task):
         with self.output()[2].open('w') as fout:
             fout.write(log)
 
-        print "===== Admixture ======="
+        print "===== Admixture K ======="
 
 
 class RScript_Ggplot_Admixture_K(luigi.Task):
@@ -691,7 +692,7 @@ class RScript_Ggplot_Admixture_K(luigi.Task):
         data = run_cmd([awk + " | paste - admix/" + self.group + ".pruned." + str(self.k) + ".Q"], True)
 
         # compose the header row
-        header = ["Pop{}".format(i) for i in range(1, self.k + 1)]
+        header = ["Pop{}".format(i) for i in range(1, int(self.k) + 1)]
         header.insert(0, "Samples")
 
         # save the labeled file
@@ -706,6 +707,54 @@ class RScript_Ggplot_Admixture_K(luigi.Task):
 
         print "===== RScript ggplot admixture ======="
 
+
+class Admixture(luigi.Task):
+    """
+    Run admixture for the given population, determine the optimal K value, and plot the graphs
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    group = luigi.Parameter()
+
+    def requires(self):
+        # run admixture or each population and each value of K
+        for k in range(1, MAX_ANCESTRAL_K + 1):
+            yield Admixture_K(self.populations, self.genome, self.targets, self.group, k)
+
+    def output(self):
+        extensions = ["data", "pdf"]
+        return [luigi.LocalTarget("admix/" + self.group + ".CV." + ext) for ext in extensions]
+
+    def run(self):
+
+        # use grep to extract the cross-validation scores from all the log files
+        cvs = run_cmd(["grep -h CV admix/" + self.group + "*.log"], True)
+
+        # extract the K value and CV score
+        # e.g. "CV error (K=1): 1.20340"
+        data = [tuple([eval(re.sub(r'[^\d.]+', "", val)) for val in cv.split(":")]) for cv in cvs.splitlines()]
+
+
+        # write the scores to a data file
+        with self.output()[0].open('w') as fout:
+            fout.write("\t".join(["K", "CV"]) + "\n")
+            for row in data:
+                fout.write("\t".join(str(datum) for datum in row) + "\n")
+
+        # plot the CV values as a line graph
+        run_cmd(["Rscript",
+                 "ggplot-cv.R",
+                 "admix/" + self.group + ".CV"])
+
+        # get the three lowest CV scores
+        bestfit = sorted(data, key=lambda x: x[1])[0:3]
+
+        # plot the admixture percentages for the 3 best fitting values of k
+        for k, cv in bestfit:
+            yield RScript_Ggplot_Admixture_K(self.populations, self.genome, self.targets, self.group, int(k))
+
+        print "===== Admixture ======="
 
 class Flashpca(luigi.Task):
     """
@@ -845,7 +894,7 @@ class Custom_Genome_Pipeline(luigi.Task):
         # for group in groups:
         #     # run admixture or each population and each value of K
         #     for k in range(1, MAX_ANCESTRAL_K + 1):
-        #         yield Admixture_K(groups[group], GENOME, TARGETS, group, k)
+        #         yield RScript_Ggplot_Admixture_K(groups[group], GENOME, TARGETS, group, k)
         #
         #     # run flashpca for each population
         #     yield RScript_Ggplot_PCA(groups[group], GENOME, TARGETS, group)
@@ -855,8 +904,7 @@ class Custom_Genome_Pipeline(luigi.Task):
         # TODO use awk to fetch the CV results
         # grep -h CV no-outgroup.*.log
 
-        for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield RScript_Ggplot_Admixture_K(groups['all-pops'], GENOME, TARGETS, 'no-outgroup', k)
+        yield Admixture(groups['all-pops'], GENOME, TARGETS, 'no-outgroup')
 
 if __name__=='__main__':
     luigi.run()
