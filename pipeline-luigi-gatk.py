@@ -662,9 +662,36 @@ class Admixture_K(luigi.Task):
         with self.output()[2].open('w') as fout:
             fout.write(log)
 
-        # TODO plot the admixture stacked column chart
-
         print "===== Admixture ======="
+
+
+class RScript_Ggplot_Admixture(luigi.Task):
+    """
+    Use ggplot to plot the admixture Q stats
+    """
+    populations = luigi.DictParameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+    group = luigi.Parameter()
+    k = luigi.Parameter()
+
+    def requires(self):
+        return Admixture_K(self.populations, self.genome, self.targets, self.group, self.k)
+
+    def output(self):
+        return luigi.LocalTarget("admixture/" + self.group + ".pruned." + str(self.k) + ".pdf")
+
+    def run(self):
+
+        # TODO plot the CV results
+
+        # generate a PDF of the admixture stacked column chart
+        run_cmd(["Rscript",
+                 "admixture.R",
+                 "admix/" + self.group + ".pruned." + str(self.k)])
+
+        print "===== RScript ggplot admixture ======="
+
 
 class Flashpca(luigi.Task):
     """
@@ -697,7 +724,7 @@ class Flashpca(luigi.Task):
 
         print "===== Flashpca ======="
 
-class RScript_Ggplot_PCA(luigi.Task):
+class RScript_Ggplot_Flashpca(luigi.Task):
     """
     Use ggplot to plot the PCA
     """
@@ -722,12 +749,12 @@ class RScript_Ggplot_PCA(luigi.Task):
         with self.output()[0].open('w') as fout:
             fout.write(data)
 
-        # generate a PNG of the PCA plot
+        # generate a PDF of the PCA plot
         run_cmd(["Rscript",
                  "flashpca.R",
                  "flashpca/pca_" + self.group])
 
-        print "===== RScript ggplot ======="
+        print "===== RScript ggplot flashpca ======="
 
 class RScript_Tree(luigi.Task):
     """
@@ -801,15 +828,21 @@ class Custom_Genome_Pipeline(luigi.Task):
         del groups['no-out-ib1']['OUT']
         del groups['no-out-ib1']['WLD-IB1']
 
-        for group in groups:
-            # run admixture or each population and each value of K
-            for k in range(1, MAX_ANCESTRAL_K + 1):
-                yield Admixture_K(groups[group], GENOME, TARGETS, group, k)
+        # for group in groups:
+        #     # run admixture or each population and each value of K
+        #     for k in range(1, MAX_ANCESTRAL_K + 1):
+        #         yield Admixture_K(groups[group], GENOME, TARGETS, group, k)
+        #
+        #     # run flashpca for each population
+        #     yield RScript_Ggplot_PCA(groups[group], GENOME, TARGETS, group)
+        #
+        # yield RScript_Tree(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
-            # run flashpca for each population
-            yield RScript_Ggplot_PCA(groups[group], GENOME, TARGETS, group)
+        # TODO use awk to fetch the CV results
+        # grep -h CV no-outgroup.*.log
 
-        yield RScript_Tree(POPULATIONS, GENOME, TARGETS, 'all-pops')
+        for k in range(1, MAX_ANCESTRAL_K + 1):
+            yield RScript_Ggplot_Admixture(groups['all-pops'], GENOME, TARGETS, 'no-outgroup', k)
 
 if __name__=='__main__':
     luigi.run()

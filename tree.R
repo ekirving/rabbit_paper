@@ -1,4 +1,6 @@
+#!/usr/bin/env Rscript
 suppressWarnings(library("ape"))
+
 args <- commandArgs(trailingOnly = TRUE)
 data=args[1]
 out=args[2]
