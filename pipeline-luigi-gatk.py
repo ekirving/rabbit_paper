@@ -665,7 +665,7 @@ class Admixture_K(luigi.Task):
         print "===== Admixture ======="
 
 
-class RScript_Ggplot_Admixture(luigi.Task):
+class RScript_Ggplot_Admixture_K(luigi.Task):
     """
     Use ggplot to plot the admixture Q stats
     """
@@ -679,11 +679,25 @@ class RScript_Ggplot_Admixture(luigi.Task):
         return Admixture_K(self.populations, self.genome, self.targets, self.group, self.k)
 
     def output(self):
-        return luigi.LocalTarget("admixture/" + self.group + ".pruned." + str(self.k) + ".pdf")
+        extensions = ['data', 'pdf']
+        return [luigi.LocalTarget("admix/" + self.group + ".pruned." + str(self.k) + "." + ext) for ext in extensions]
 
     def run(self):
 
         # TODO plot the CV results
+
+        # use awk to add population and sample names, needed for the plot
+        awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + self.group + ".fam"
+        data = run_cmd([awk + " | paste - admix/" + self.group + ".pruned." + str(self.k) + ".Q"], True)
+
+        # compose the header row
+        header = ["Pop{}".format(i) for i in range(1, self.k + 1)]
+        header.insert(0, "Samples")
+
+        # save the labeled file
+        with self.output()[0].open('w') as fout:
+            fout.write("\t".join(header)+"\n")
+            fout.write(data)
 
         # generate a PDF of the admixture stacked column chart
         run_cmd(["Rscript",
@@ -742,7 +756,7 @@ class RScript_Ggplot_Flashpca(luigi.Task):
 
     def run(self):
 
-        # use awk to add population and sample names, needed for the PCA plot
+        # use awk to add population and sample names, needed for the plot
         data = run_cmd(["awk '{print $1\"\t\"$2}' bed/" + self.group + ".fam | paste - flashpca/pcs_" + self.group + ".txt"], True)
 
         # save the labeled file
@@ -842,7 +856,7 @@ class Custom_Genome_Pipeline(luigi.Task):
         # grep -h CV no-outgroup.*.log
 
         for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield RScript_Ggplot_Admixture(groups['all-pops'], GENOME, TARGETS, 'no-outgroup', k)
+            yield RScript_Ggplot_Admixture_K(groups['all-pops'], GENOME, TARGETS, 'no-outgroup', k)
 
 if __name__=='__main__':
     luigi.run()
