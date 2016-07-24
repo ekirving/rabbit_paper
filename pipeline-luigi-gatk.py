@@ -685,8 +685,6 @@ class RScript_Ggplot_Admixture_K(luigi.Task):
 
     def run(self):
 
-        # TODO plot the CV results
-
         # use awk to add population and sample names, needed for the plot
         awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + self.group + ".fam"
         data = run_cmd([awk + " | paste - admix/" + self.group + ".pruned." + str(self.k) + ".Q"], True)
@@ -708,7 +706,7 @@ class RScript_Ggplot_Admixture_K(luigi.Task):
         print "===== RScript ggplot admixture ======="
 
 
-class Admixture(luigi.Task):
+class Admixture_CV(luigi.Task):
     """
     Run admixture for the given population, determine the optimal K value, and plot the graphs
     """
@@ -734,7 +732,6 @@ class Admixture(luigi.Task):
         # extract the K value and CV score
         # e.g. "CV error (K=1): 1.20340"
         data = [tuple([eval(re.sub(r'[^\d.]+', "", val)) for val in cv.split(":")]) for cv in cvs.splitlines()]
-
 
         # write the scores to a data file
         with self.output()[0].open('w') as fout:
@@ -891,20 +888,17 @@ class Custom_Genome_Pipeline(luigi.Task):
         del groups['no-out-ib1']['OUT']
         del groups['no-out-ib1']['WLD-IB1']
 
-        # for group in groups:
-        #     # run admixture or each population and each value of K
-        #     for k in range(1, MAX_ANCESTRAL_K + 1):
-        #         yield RScript_Ggplot_Admixture_K(groups[group], GENOME, TARGETS, group, k)
-        #
-        #     # run flashpca for each population
-        #     yield RScript_Ggplot_PCA(groups[group], GENOME, TARGETS, group)
-        #
-        # yield RScript_Tree(POPULATIONS, GENOME, TARGETS, 'all-pops')
+        for group in groups:
+            # # run admixture or each population and each value of K
+            # for k in range(1, MAX_ANCESTRAL_K + 1):
+            #     yield RScript_Ggplot_Admixture_K(groups[group], GENOME, TARGETS, group, k)
 
-        # TODO use awk to fetch the CV results
-        # grep -h CV no-outgroup.*.log
+            # run flashpca for each population
+            yield RScript_Ggplot_Flashpca(groups[group], GENOME, TARGETS, group)
 
-        yield Admixture(groups['all-pops'], GENOME, TARGETS, 'no-outgroup')
+        yield RScript_Tree(POPULATIONS, GENOME, TARGETS, 'all-pops')
+
+        yield Admixture_CV(groups['no-outgroup'], GENOME, TARGETS, 'no-outgroup')
 
 if __name__=='__main__':
     luigi.run()
