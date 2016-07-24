@@ -16,13 +16,16 @@ from vcfparser import *
 
 # the reference genome
 GENOME = "OryCun2.0"
-GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0.dna.toplevel.fa.gz"
+GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0" \
+             ".dna.toplevel.fa.gz"
 
 # file containing the list of sequence capture regions, format <chr>:<start>-<stop>
 TARGETS = './targets.interval_list'
 
+# TODO investigate frozenordereddict
+
 # population, accession codes
-POPULATIONS = dict() # (n=28)
+POPULATIONS = dict()  # (n=28)
 
 # Wild mountain hare / Lepus timidus (n=1)
 POPULATIONS['OUT'] = ['SRR824842']
@@ -82,6 +85,7 @@ def run_cmd(cmd, shell=False):
         raise Exception(stderr)
 
     return stdout
+
 
 def unzip_file(gzip):
     """
@@ -650,6 +654,7 @@ class Admixture_K(luigi.Task):
         # admixture only outputs to the current directory
         os.chdir('./admix')
 
+        # TODO what about bootstrapping (-B / -B2000)
         log = run_cmd(["admixture",
                        "-j{}".format(MAX_CPU_CORES),           # use multi-threading
                        "--cv",                                 # include cross-validation standard errors
@@ -808,6 +813,8 @@ class RScript_Ggplot_Flashpca(luigi.Task):
         # save the labeled file
         with self.output()[0].open('w') as fout:
             fout.write(data)
+
+        # TODO append the % of variance explained by each PCA
 
         # generate a PDF of the PCA plot
         run_cmd(["Rscript",

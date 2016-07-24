@@ -11,8 +11,6 @@ t1 = read.table(paste(groupname, "data", sep = "."))
 col=c("#524FA1", "#FDB913", "lightgreen", "#00ADDC", "Darkgreen", "#ED1C24", "Black", "Pink", "Brown", "Cyan", "midnightblue", "palevioletred3", "lightcoral", "yellow4", "wheat4")
 names(t1)[1]<-paste("Population")
 
-# TODO append the % of variance explained by each PCA
-
 alpha=c(1, 1, 1, 0.1, 1, 1, 1, 1, 1, 1, 1, 1)
 pdf(file=paste(groupname, "pdf", sep = "."), width = 10, height = 7)
 ggplot(t1, aes(V3, V4)) + aes(shape=factor(Population)) + scale_shape_manual(values=v) + geom_point(aes(colour = factor(Population)), size=3, alpha=1) +  xlab("PC1") + ylab("PC2") + scale_colour_manual(values=col) + theme_bw() + theme(legend.title=element_blank(), legend.key = element_blank()) + guides(colour = guide_legend(override.aes = list(size=4)))

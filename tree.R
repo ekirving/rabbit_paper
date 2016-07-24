@@ -15,13 +15,15 @@ tr<-root(tr, outgroup = "OUT-842", resolve.root = TRUE)
 # sort the tree
 tr <- ladderize(tr)
 
+collist=c("#524FA1", "#FDB913", "lightgreen", "#00ADDC", "Darkgreen", "#ED1C24", "Black", "Pink", "Brown", "Cyan", "midnightblue", "palevioletred3", "lightcoral", "yellow4", "wheat4")
+
 # colour the tips of the tree
 col <- substring(tr$tip, 0, 3)
-col[col=="DOM"] = "#524FA1"
-col[col=="FRE"] = "#FDB913"
-col[col=="IB1"] = "lightgreen"
-col[col=="IB2"] = "#00ADDC"
-col[col=="OUT"] = "Darkgreen"
+col[col=="DOM"] = collist[1]
+col[col=="FRE"] = collist[2]
+col[col=="IB1"] = collist[3]
+col[col=="IB2"] = collist[4]
+col[col=="OUT"] = collist[5]
 
 # save the tree data
 write.tree(tr, file=out)
