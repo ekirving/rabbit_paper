@@ -115,16 +115,16 @@ def unzip_file(gzip):
             raise e
 
 
-def curl_download(url, file):
+def curl_download(url, filename):
     """
     Downloads a remote url to a local file path using cURL
     """
 
     # download the file
     run_cmd(["curl",
-             "-s",              # download silently
-             "--output", file,  # output path
-             url])              # from this url
+             "-s",                  # download silently
+             "--output", filename,  # output path
+             url])                  # from this url
 
 
 class SamplePairedEndFastq(luigi.Task):
@@ -201,8 +201,7 @@ class PicardCreateSequenceDictionary(luigi.Task):
         return luigi.LocalTarget("fasta/{0}.fa".format(self.genome))
 
     def run(self):
-        run_cmd(["java", "-jar",
-                 "/usr/local/picard-tools-2.5.0/picard.jar",
+        run_cmd(["java", "-jar", "$PICARD",
                  "CreateSequenceDictionary",
                  "R=fasta/{0}.fa".format(self.genome),     # reference fasta file
                  "O=fasta/{0}.dict".format(self.genome)])  # dictionary file
@@ -303,14 +302,12 @@ class PicardMarkDuplicates(luigi.Task):
     def run(self):
 
         # https://broadinstitute.github.io/picard/command-line-overview.html#FixMateInformation
-        run_cmd(["java", "-jar",
-                 "/usr/local/picard-tools-2.5.0/picard.jar",
+        run_cmd(["java", "-jar", "$PICARD",
                  "FixMateInformation",
                  "INPUT=bam/{0}.bam".format(self.sample)])
 
         # https://broadinstitute.github.io/picard/command-line-overview.html#MarkDuplicates
-        run_cmd(["java", "-jar",
-                 "/usr/local/picard-tools-2.5.0/picard.jar",
+        run_cmd(["java", "-jar", "$PICARD",
                  "MarkDuplicates",
                  "INPUT=bam/{0}.bam".format(self.sample),
                  "OUTPUT=bam/{0}.rmdup.bam".format(self.sample),
@@ -358,8 +355,7 @@ class GatkHaplotypeCaller(luigi.Task):
 
     def run(self):
 
-        run_cmd(["java", "-Xmx8G", "-Xms8G", "-jar",
-                 "../GenomeAnalysisTK.jar",
+        run_cmd(["java", "-Xmx8G", "-jar", "$GATK",
                  "-T", "HaplotypeCaller",                   # use the HaplotypeCaller to call variants
                  "-R", "fasta/{0}.fa".format(self.genome),  # the indexed reference genome
                  "--genotyping_mode", "DISCOVERY",          # variant discovery
@@ -394,8 +390,7 @@ class GatkGenotypeGVCFs(luigi.Task):
         # make a list of input files
         vcf_files = sum([["-V", "vcf/{0}.vcf".format(sample)] for sample in self.samples], [])
 
-        run_cmd(["java", "-Xmx8G", "-Xms8G", "-jar",
-                 "../GenomeAnalysisTK.jar",
+        run_cmd(["java", "-Xmx8G", "-jar", "$GATK",
                  "-T", "GenotypeGVCFs",                     # use GenotypeGVCFs to jointly call variants
                  "--num_threads", MAX_CPU_CORES,            # number of data threads to allocate to this analysis
                  "--includeNonVariantSites",                # include loci found to be non-variant after genotyping
@@ -449,8 +444,7 @@ class GatkSelectVariants(luigi.Task):
 
     def run(self):
 
-        run_cmd(["java", "-Xmx2g", "-jar",
-                 "../GenomeAnalysisTK.jar",
+        run_cmd(["java", "-Xmx2g", "-jar", "$GATK",
                  "-T", "SelectVariants",
                  "-R", "fasta/{0}.fa".format(self.genome),
                  "-V", "vcf/{0}.vcf".format(self.population),
@@ -487,9 +481,8 @@ class PlinkMakeBed(luigi.Task):
                  "--vcf", "vcf/{0}.variant.vcf".format(self.population),
                  "--out", "ped/{0}".format(self.population)])
 
-        # TODO pipe this results rather than buffer it
         # use awk to add variant IDs, so we can identify polyallelic sites during merge
-        map = run_cmd(["awk", "$2=$1\"-\"$4", "ped/{0}.map".format(self.population)])
+        map = run_cmd(["awk '$2=$1\"-\"$4' ped/" + str(self.population) + ".map", True])
 
         # replace the old map file
         with open("ped/{0}.map".format(self.population), 'w') as fout:
