@@ -765,6 +765,7 @@ class PlotFlashPCA(luigi.Task):
     group = luigi.Parameter()
     pcs1 = luigi.IntParameter()
     pcs2 = luigi.IntParameter()
+    labeled = luigi.BoolParameter(default=False)
 
     def requires(self):
         return FlashPCA(self.populations, self.genome, self.targets, self.group)
@@ -772,7 +773,7 @@ class PlotFlashPCA(luigi.Task):
     def output(self):
         return [luigi.LocalTarget("flashpca/pca_{0}.data".format(self.group)),
                 luigi.LocalTarget("flashpca/pve_{0}.txt".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.PCA{1}.{2}.pdf".format(self.group, self.pcs1, self.pcs2))]
+                luigi.LocalTarget("pdf/{0}.PCA.{1}.{2}.pdf".format(self.group, self.pcs1, self.pcs2))]
 
     def run(self):
 
@@ -787,11 +788,12 @@ class PlotFlashPCA(luigi.Task):
         # generate a PDF of the PCA plot
         run_cmd(["Rscript",
                  "plot-flashpca.R",
-                 self.output()[0].path, # pca data
-                 self.output()[1].path, # pve data
-                 self.output()[2].path, # pdf path
-                 self.pcs1,             # component x-axis
-                 self.pcs2])            # component y-axis
+                 self.output()[0].path,      # pcs data
+                 self.output()[1].path,      # pve data
+                 self.output()[2].path,      # pdf location
+                 self.pcs1,                  # component for x-axis
+                 self.pcs2,                  # component for y-axis
+                 1 if self.labeled else 0])  # label points (yes/no)
 
 
 class PlotPhyloTree(luigi.Task):
@@ -872,13 +874,9 @@ class CustomGenomePipeline(luigi.Task):
         del groups['no-out-ib1']['WLD-IB1']
 
         for group in groups:
-            # # run admixture or each population and each value of K
-            # for k in range(1, MAX_ANCESTRAL_K + 1):
-            #     yield RScript_Ggplot_Admixture_K(groups[group], GENOME, TARGETS, group, k)
-
             # run flashpca for each population (for the top 5 components)
             for pcs1, pcs2 in [(1,2), (3,4), (5,6)]:
-                yield PlotFlashPCA(groups[group], GENOME, TARGETS, group, pcs1, pcs2)
+                yield PlotFlashPCA(groups[group], GENOME, TARGETS, group, pcs1, pcs2, True)
 
         yield PlotPhyloTree(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
