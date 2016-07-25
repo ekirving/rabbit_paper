@@ -1,6 +1,10 @@
 # compiled python byte code
 *.pyc
 
+# R environment files
+.RData
+.Rhistory
+
 # output logging from nohup command
 nohup.out
 

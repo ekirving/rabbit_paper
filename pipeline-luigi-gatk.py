@@ -22,7 +22,7 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 # file containing the list of sequence capture regions, format <chr>:<start>-<stop>
 TARGETS = './targets.interval_list'
 
-# TODO investigate frozenordereddict
+# TODO investigate luigi.FrozenOrderedDict()
 
 # population, accession codes
 POPULATIONS = dict()  # (n=28)
@@ -31,10 +31,11 @@ POPULATIONS = dict()  # (n=28)
 POPULATIONS['OUT'] = ['SRR824842']
 
 # Domestic breeds (n=8)
-POPULATIONS['DOM'] = ['SRR997325','SRR997320','SRR997321','SRR997327','SRR997323','SRR997326','SRR997324','SRR997322']
+POPULATIONS['DOM'] = ['SRR997325', 'SRR997320', 'SRR997321', 'SRR997327', 'SRR997323', 'SRR997326', 'SRR997324',
+                      'SRR997322']
 
 # Wild French (n=7)
-POPULATIONS['WLD-FRE'] = ['SRR997319','SRR997317','SRR997304','SRR997303','SRR997318','SRR997316','SRR997305']
+POPULATIONS['WLD-FRE'] = ['SRR997319', 'SRR997317', 'SRR997304', 'SRR997303', 'SRR997318', 'SRR997316', 'SRR997305']
 
 # Wild Iberian / Oryctolagus cuniculus algirus (n=6)
 POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
@@ -54,11 +55,13 @@ MAX_ANCESTRAL_K = 10
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
+
 def run_cmd(cmd, shell=False):
     """
     Executes the given command in a system subprocess
 
     :param cmd: The system command to run (list|string)
+    :param shell: Use the native shell
     :return: The stdout stream
     """
 
@@ -97,9 +100,9 @@ def unzip_file(gzip):
     try:
         # use unpigz for multithreaded unzipping (if installed)
         return run_cmd(["unpigz",
-                        "-c",                # output to stdout
-                        "-p", MAX_CPU_CORES, # use the maximum cores
-                        gzip])               # gzip file
+                        "-c",                 # output to stdout
+                        "-p", MAX_CPU_CORES,  # use the maximum cores
+                        gzip])                # gzip file
 
     except OSError as e:
         # if it's not installed
@@ -107,14 +110,14 @@ def unzip_file(gzip):
 
             # use single-threaded gunzip
             return run_cmd(["gunzip",
-                            "-c",            # output to stdout
-                            gzip])           # gzip file
+                            "-c",             # output to stdout
+                            gzip])            # gzip file
         else:
             # escalate the exception
             raise e
 
 
-class Curl_Download(luigi.Task):
+class CurlDownload(luigi.Task):
     """
     Downloads a remote url to a local file path using cURL
     """
@@ -137,7 +140,7 @@ class Curl_Download(luigi.Task):
         print "====== cURL Downloading file ======"
 
 
-class Sample_PairedEnd_Fastq(luigi.Task):
+class SamplePairedEndFastq(luigi.Task):
     """
     Fetches the two paired-end FASTQ files for a given sample ID
     """
@@ -151,14 +154,15 @@ class Sample_PairedEnd_Fastq(luigi.Task):
 
         # NCBI SRA toolkit
         run_cmd(["fastq-dump",
-                 "--gzip",              # outpute gzipped files
-                 "--split-files",       # split paired end files
-                 "--outdir", "./fastq", # output directory
+                 "--gzip",               # output gzipped files
+                 "--split-files",        # split paired end files
+                 "--outdir", "./fastq",  # output directory
                  self.sample])
 
         print "====== Downloaded Paired-end FASTQ ======"
 
-class Reference_Genome_Fasta(luigi.Task):
+
+class ReferenceGenomeFasta(luigi.Task):
     """
     Fetches the reference genome
     """
@@ -168,7 +172,7 @@ class Reference_Genome_Fasta(luigi.Task):
     def requires(self):
         global GENOME_URL
         # download the gzipped fasta file of the reference genome
-        return Curl_Download(GENOME_URL, "fasta/" + self.genome + ".fa.gz")
+        return CurlDownload(GENOME_URL, "fasta/" + self.genome + ".fa.gz")
 
     def output(self):
         return luigi.LocalTarget("fasta/" + self.genome + ".fa")
@@ -182,33 +186,35 @@ class Reference_Genome_Fasta(luigi.Task):
 
         print "====== Downloaded genome FASTA ======"
 
-class Samtools_Faidx(luigi.Task):
+
+class SamtoolsFaidx(luigi.Task):
     """
     Create the samtools fasta index for the reference genome, needed for GATK
     """
     genome = luigi.Parameter()
 
     def requires(self):
-        return Reference_Genome_Fasta(self.genome)
+        return ReferenceGenomeFasta(self.genome)
 
     def output(self):
         return luigi.LocalTarget("fasta/" + self.genome + ".fa.fai")
 
     def run(self):
         run_cmd(["samtools1.3",
-                 "faidx",                     # index needed for CRAM files
-                 "fasta/" + self.genome + ".fa"]) # input file
+                 "faidx",                          # index needed for CRAM files
+                 "fasta/" + self.genome + ".fa"])  # input file
 
         print "====== Built the samtools FASTA index ======"
 
-class Picard_CreateSequenceDictionary(luigi.Task):
+
+class PicardCreateSequenceDictionary(luigi.Task):
     """
     Create the sequence dictionary for the reference genome, needed for GATK
     """
     genome = luigi.Parameter()
 
     def requires(self):
-        return Reference_Genome_Fasta(self.genome)
+        return ReferenceGenomeFasta(self.genome)
 
     def output(self):
         return luigi.LocalTarget("fasta/" + self.genome + ".fa")
@@ -222,14 +228,15 @@ class Picard_CreateSequenceDictionary(luigi.Task):
 
         print "====== Built the picard sequence dictionary ======"
 
-class Bwa_Index_Bwtsw(luigi.Task):
+
+class BwaIndexBwtsw(luigi.Task):
     """
     Builds the BWA index for the reference genome, needed for performing alignments
     """
     genome = luigi.Parameter()
 
     def requires(self):
-        return Reference_Genome_Fasta(self.genome)
+        return ReferenceGenomeFasta(self.genome)
 
     def output(self):
         extensions = ['amb', 'ann', 'bwt', 'pac', 'sa']
@@ -243,7 +250,8 @@ class Bwa_Index_Bwtsw(luigi.Task):
 
         print "====== Built the BWA index ======"
 
-class Bwa_Mem(luigi.Task):
+
+class BwaMem(luigi.Task):
     """
     Align the fastq files to the reference genome
     """
@@ -251,14 +259,14 @@ class Bwa_Mem(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return [Sample_PairedEnd_Fastq(self.sample),
-                Bwa_Index_Bwtsw(self.genome)]
+        return [SamplePairedEndFastq(self.sample),
+                BwaIndexBwtsw(self.genome)]
 
     def output(self):
         return luigi.LocalTarget("sam/" + self.sample + ".sam")
 
     def run(self):
-        readgroup= "@RG\\tID:{sample}\\tSM:{sample}".format(sample=self.sample)
+        readgroup= "@RG\\tID:{sample}\\tSM:{sample}".format(sample = self.sample)
 
         # perform the alignment
         sam = run_cmd(["bwa",
@@ -275,7 +283,8 @@ class Bwa_Mem(luigi.Task):
 
         print "====== Aligned the FASTQ using BWA ======"
 
-class Samtools_Sort_Bam(luigi.Task):
+
+class SamtoolsSortBam(luigi.Task):
     """
     Convert an uncompressed SAM file into BAM format, and sort it
     """
@@ -283,7 +292,7 @@ class Samtools_Sort_Bam(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return Bwa_Mem(self.sample, self.genome)
+        return BwaMem(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("bam/" + self.sample + ".bam")
@@ -303,7 +312,8 @@ class Samtools_Sort_Bam(luigi.Task):
 
         print "===== Converted SAM file to BAM ======"
 
-class Picard_MarkDuplicates(luigi.Task):
+
+class PicardMarkDuplicates(luigi.Task):
     """
     Remove PCR duplicates, so we don't overestimate coverage
     """
@@ -311,7 +321,7 @@ class Picard_MarkDuplicates(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return Samtools_Sort_Bam(self.sample, self.genome)
+        return SamtoolsSortBam(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("bam/" + self.sample + ".rmdup.bam")
@@ -336,7 +346,8 @@ class Picard_MarkDuplicates(luigi.Task):
 
         print "==== Removed Duplicates from BAM ===="
 
-class Samtools_Index_Bam(luigi.Task):
+
+class SamtoolsIndexBam(luigi.Task):
     """
     Create an index for the BAM file, for fast random access
     """
@@ -347,7 +358,7 @@ class Samtools_Index_Bam(luigi.Task):
         return luigi.LocalTarget("bam/" + self.sample + ".rmdup.bam.bai")
 
     def requires(self):
-        return Picard_MarkDuplicates(self.sample, self.genome)
+        return PicardMarkDuplicates(self.sample, self.genome)
 
     def run(self):
         run_cmd(["samtools1.3",
@@ -357,7 +368,8 @@ class Samtools_Index_Bam(luigi.Task):
 
         print "==== Indexing CRAM ===="
 
-class GATK_HaplotypeCaller(luigi.Task):
+
+class GatkHaplotypeCaller(luigi.Task):
     """
     Convert the BAM file into a gVCF
     """
@@ -366,9 +378,9 @@ class GATK_HaplotypeCaller(luigi.Task):
     targets = luigi.Parameter()
 
     def requires(self):
-        return [Picard_CreateSequenceDictionary(self.genome),
-                Samtools_Faidx(self.genome),
-                Samtools_Index_Bam(self.sample, self.genome)]
+        return [PicardCreateSequenceDictionary(self.genome),
+                SamtoolsFaidx(self.genome),
+                SamtoolsIndexBam(self.sample, self.genome)]
 
     def output(self):
         return luigi.LocalTarget("vcf/" + self.sample + ".vcf")
@@ -392,7 +404,8 @@ class GATK_HaplotypeCaller(luigi.Task):
 
         print "===== Created gVCF for sample ======="
 
-class GATK_GenotypeGVCFs(luigi.Task):
+
+class GatkGenotypeGVCFs(luigi.Task):
     """
     Joint genotype all the samples in a population
     """
@@ -403,7 +416,7 @@ class GATK_GenotypeGVCFs(luigi.Task):
 
     def requires(self):
         for sample in self.samples:
-            yield GATK_HaplotypeCaller(sample, self.genome, self.targets)
+            yield GatkHaplotypeCaller(sample, self.genome, self.targets)
 
     def output(self):
         return luigi.LocalTarget("vcf/" + self.population + ".vcf")
@@ -423,7 +436,8 @@ class GATK_GenotypeGVCFs(luigi.Task):
 
         print "===== Joint genotyped population ======="
 
-class Site_Frequency_Spectrum(luigi.Task):
+
+class SiteFrequencySpectrum(luigi.Task):
     """
     Produce the site frequency spectrum, based on genotype calls from GATK GenotypeGVCFs
     """
@@ -433,7 +447,7 @@ class Site_Frequency_Spectrum(luigi.Task):
 
     def requires(self):
         for pop in self.populations:
-            yield GATK_GenotypeGVCFs(pop, self.populations[pop], self.genome, self.targets)
+            yield GatkGenotypeGVCFs(pop, self.populations[pop], self.genome, self.targets)
 
     def output(self):
         return luigi.LocalTarget("fsdata/" + self.genome + ".data")
@@ -452,7 +466,8 @@ class Site_Frequency_Spectrum(luigi.Task):
 
         print "===== Generated the site frequency spectrum  ======="
 
-class GATK_SelectVariants(luigi.Task):
+
+class GatkSelectVariants(luigi.Task):
     """
     Select only biallelic variant sites for downstream analysis
     """
@@ -462,7 +477,7 @@ class GATK_SelectVariants(luigi.Task):
     targets = luigi.Parameter()
 
     def requires(self):
-        yield GATK_GenotypeGVCFs(self.population, self.samples, self.genome, self.targets)
+        yield GatkGenotypeGVCFs(self.population, self.samples, self.genome, self.targets)
 
     def output(self):
         return luigi.LocalTarget("vcf/" + self.population + ".variant.vcf")
@@ -481,7 +496,7 @@ class GATK_SelectVariants(luigi.Task):
         print "===== Selected variant sites ======="
 
 
-class Plink_Make_Bed(luigi.Task):
+class PlinkMakeBed(luigi.Task):
     """
     Convert a population gVCF into a BED file (binary pedigree)
     """
@@ -491,7 +506,7 @@ class Plink_Make_Bed(luigi.Task):
     targets = luigi.Parameter()
 
     def requires(self):
-        yield GATK_SelectVariants(self.population, self.samples, self.genome, self.targets)
+        yield GatkSelectVariants(self.population, self.samples, self.genome, self.targets)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -525,7 +540,7 @@ class Plink_Make_Bed(luigi.Task):
         print "===== Created population BED file ======="
 
 
-class Plink_Merge_Beds(luigi.Task):
+class PlinkMergeBeds(luigi.Task):
     """
     Merge multiple BED files into one
     """
@@ -536,7 +551,7 @@ class Plink_Merge_Beds(luigi.Task):
 
     def requires(self):
         for pop in self.populations:
-            yield Plink_Make_Bed(pop, self.populations[pop], self.genome, self.targets)
+            yield PlinkMakeBed(pop, self.populations[pop], self.genome, self.targets)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -598,7 +613,7 @@ class Plink_Merge_Beds(luigi.Task):
         print "===== Merged BED files ======="
 
 
-class Plink_Prune_Bed(luigi.Task):
+class PlinkPruneBed(luigi.Task):
     """
     Prune the genome BED file for linkage disequilibrium
     """
@@ -608,7 +623,7 @@ class Plink_Prune_Bed(luigi.Task):
     group = luigi.Parameter()
 
     def requires(self):
-        return Plink_Merge_Beds(self.populations, self.genome, self.targets, self.group)
+        return PlinkMergeBeds(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -632,7 +647,7 @@ class Plink_Prune_Bed(luigi.Task):
         print "===== Pruned BED file ======="
 
 
-class Admixture_K(luigi.Task):
+class AdmixtureK(luigi.Task):
     """
     Run admixture, with K ancestral populations, on the pruned BED files
     """
@@ -643,7 +658,7 @@ class Admixture_K(luigi.Task):
     k = luigi.Parameter()
 
     def requires(self):
-        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.group)
+        return PlinkPruneBed(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         extensions = ['P', 'Q', 'log']
@@ -671,7 +686,7 @@ class Admixture_K(luigi.Task):
         print "===== Admixture K ======="
 
 
-class RScript_Ggplot_Admixture_K(luigi.Task):
+class GgplotAdmixtureK(luigi.Task):
     """
     Use ggplot to plot the admixture Q stats
     """
@@ -682,7 +697,7 @@ class RScript_Ggplot_Admixture_K(luigi.Task):
     k = luigi.Parameter()
 
     def requires(self):
-        return Admixture_K(self.populations, self.genome, self.targets, self.group, self.k)
+        return AdmixtureK(self.populations, self.genome, self.targets, self.group, self.k)
 
     def output(self):
         extensions = ['data', 'pdf']
@@ -711,7 +726,7 @@ class RScript_Ggplot_Admixture_K(luigi.Task):
         print "===== RScript ggplot admixture ======="
 
 
-class Admixture_CV(luigi.Task):
+class AdmixtureCV(luigi.Task):
     """
     Run admixture for the given population, determine the optimal K value, and plot the graphs
     """
@@ -723,7 +738,7 @@ class Admixture_CV(luigi.Task):
     def requires(self):
         # run admixture or each population and each value of K
         for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield Admixture_K(self.populations, self.genome, self.targets, self.group, k)
+            yield AdmixtureK(self.populations, self.genome, self.targets, self.group, k)
 
     def output(self):
         extensions = ["data", "pdf"]
@@ -754,11 +769,12 @@ class Admixture_CV(luigi.Task):
 
         # plot the admixture percentages for the 3 best fitting values of k
         for k, cv in bestfit:
-            yield RScript_Ggplot_Admixture_K(self.populations, self.genome, self.targets, self.group, int(k))
+            yield GgplotAdmixtureK(self.populations, self.genome, self.targets, self.group, int(k))
 
         print "===== Admixture ======="
 
-class Flashpca(luigi.Task):
+
+class FlashPCA(luigi.Task):
     """
     Run flashpca on the pruned BED files
     """
@@ -768,7 +784,7 @@ class Flashpca(luigi.Task):
     group = luigi.Parameter()
 
     def requires(self):
-        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.group)
+        return PlinkPruneBed(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         prefixes = ['eigenvalues', 'eigenvectors', 'pcs', 'pve']
@@ -789,7 +805,8 @@ class Flashpca(luigi.Task):
 
         print "===== Flashpca ======="
 
-class RScript_Ggplot_Flashpca(luigi.Task):
+
+class GgplotFlashPCA(luigi.Task):
     """
     Use ggplot to plot the PCA
     """
@@ -799,7 +816,7 @@ class RScript_Ggplot_Flashpca(luigi.Task):
     group = luigi.Parameter()
 
     def requires(self):
-        return Flashpca(self.populations, self.genome, self.targets, self.group)
+        return FlashPCA(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         extensions = ['data', 'pdf']
@@ -823,7 +840,8 @@ class RScript_Ggplot_Flashpca(luigi.Task):
 
         print "===== RScript ggplot flashpca ======="
 
-class RScript_Tree(luigi.Task):
+
+class PlotPhyloTree(luigi.Task):
     """
     Create a phylogenetic tree from a pruned BED file
     """
@@ -833,7 +851,7 @@ class RScript_Tree(luigi.Task):
     group = luigi.Parameter()
 
     def requires(self):
-        return Plink_Prune_Bed(self.populations, self.genome, self.targets, self.group)
+        return PlinkPruneBed(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
         return luigi.LocalTarget("tree/" + self.group + ".tree")
@@ -870,7 +888,7 @@ class RScript_Tree(luigi.Task):
 
         print "===== RScript tree ======="
 
-class Custom_Genome_Pipeline(luigi.Task):
+class CustomGenomePipeline(luigi.Task):
     """
     Run all the samples through the pipeline
     """
@@ -878,7 +896,7 @@ class Custom_Genome_Pipeline(luigi.Task):
     def requires(self):
 
         # make the SFS for dadi
-        yield Site_Frequency_Spectrum(POPULATIONS, GENOME, TARGETS)
+        yield SiteFrequencySpectrum(POPULATIONS, GENOME, TARGETS)
 
         # setup some population groups
         groups = dict()
@@ -901,11 +919,11 @@ class Custom_Genome_Pipeline(luigi.Task):
             #     yield RScript_Ggplot_Admixture_K(groups[group], GENOME, TARGETS, group, k)
 
             # run flashpca for each population
-            yield RScript_Ggplot_Flashpca(groups[group], GENOME, TARGETS, group)
+            yield GgplotFlashPCA(groups[group], GENOME, TARGETS, group)
 
-        yield RScript_Tree(POPULATIONS, GENOME, TARGETS, 'all-pops')
+        yield PlotPhyloTree(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
-        yield Admixture_CV(groups['no-outgroup'], GENOME, TARGETS, 'no-outgroup')
+        yield AdmixtureCV(groups['no-outgroup'], GENOME, TARGETS, 'no-outgroup')
 
 if __name__=='__main__':
     luigi.run()
