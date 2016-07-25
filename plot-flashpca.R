@@ -7,11 +7,15 @@ args <- commandArgs(trailingOnly = TRUE)
 pca_file=args[1]
 pve_file=args[2]
 pdf_file=args[3]
+comp1=strtoi(args[4])
+comp2=strtoi(args[5])
 
 # TODO remove when done testing
 #setwd("/Users/Evan/Dropbox/Code/rabbits")
 #pca_file = "flashpca/pca_no-outgroup.data"
 #pve_file = "flashpca/pve_no-outgroup.txt"
+#comp1=5
+#comp2=6
 
 # get the percentage of variance each component explains
 pve <- round(read.table(pve_file)[,1]*100, 1)
@@ -23,5 +27,5 @@ names(t1)[1]<-paste("Population")
 
 alpha=c(1, 1, 1, 0.1, 1, 1, 1, 1, 1, 1, 1, 1)
 pdf(file=pdf_file, width = 10, height = 7)
-ggplot(t1, aes(V3, V4)) + aes(shape=factor(Population)) + scale_shape_manual(values=v) + geom_point(aes(colour = factor(Population)), size=3, alpha=1) +  xlab(paste("PC1 (", pve[1], "%)", sep='')) + ylab(paste("PC2 (", pve[2], "%)", sep='')) + scale_colour_manual(values=col) + theme_bw() + theme(legend.title=element_blank(), legend.key = element_blank()) + guides(colour = guide_legend(override.aes = list(size=4)))
+ggplot(t1, aes(t1[[paste('V', comp1+2, sep='')]], t1[[paste('V', comp2+2, sep='')]])) + aes(shape=factor(Population)) + scale_shape_manual(values=v) + geom_point(aes(colour = factor(Population)), size=3, alpha=1) +  xlab(paste("PC", comp1, " (", pve[comp1], "%)", sep='')) + ylab(paste("PC", comp2, " (", pve[comp2], "%)", sep='')) + scale_colour_manual(values=col) + theme_bw() + theme(legend.title=element_blank(), legend.key = element_blank()) + guides(colour = guide_legend(override.aes = list(size=4)))
 dev.off()

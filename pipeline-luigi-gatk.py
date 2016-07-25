@@ -607,7 +607,7 @@ class AdmixtureK(luigi.Task):
     genome = luigi.Parameter()
     targets = luigi.Parameter()
     group = luigi.Parameter()
-    k = luigi.Parameter()
+    k = luigi.IntParameter()
 
     def requires(self):
         return PlinkPruneBed(self.populations, self.genome, self.targets, self.group)
@@ -644,7 +644,7 @@ class PlotAdmixtureK(luigi.Task):
     genome = luigi.Parameter()
     targets = luigi.Parameter()
     group = luigi.Parameter()
-    k = luigi.Parameter()
+    k = luigi.IntParameter()
 
     def requires(self):
         return AdmixtureK(self.populations, self.genome, self.targets, self.group, self.k)
@@ -763,6 +763,8 @@ class PlotFlashPCA(luigi.Task):
     genome = luigi.Parameter()
     targets = luigi.Parameter()
     group = luigi.Parameter()
+    pcs1 = luigi.IntParameter()
+    pcs2 = luigi.IntParameter()
 
     def requires(self):
         return FlashPCA(self.populations, self.genome, self.targets, self.group)
@@ -770,7 +772,7 @@ class PlotFlashPCA(luigi.Task):
     def output(self):
         return [luigi.LocalTarget("flashpca/pca_{0}.data".format(self.group)),
                 luigi.LocalTarget("flashpca/pve_{0}.txt".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.PCA.pdf".format(self.group))]
+                luigi.LocalTarget("pdf/{0}.PCA{1}.{2}.pdf".format(self.group, self.pcs1, self.pcs2))]
 
     def run(self):
 
@@ -782,14 +784,14 @@ class PlotFlashPCA(luigi.Task):
         with self.output()[0].open('w') as fout:
             fout.write(data)
 
-        # TODO append the % of variance explained by each PCA
-
         # generate a PDF of the PCA plot
         run_cmd(["Rscript",
                  "plot-flashpca.R",
-                 self.output()[0].path,
-                 self.output()[1].path,
-                 self.output()[2].path])
+                 self.output()[0].path, # pca data
+                 self.output()[1].path, # pve data
+                 self.output()[2].path, # pdf path
+                 self.pcs1,             # component x-axis
+                 self.pcs2])            # component y-axis
 
 
 class PlotPhyloTree(luigi.Task):
@@ -874,8 +876,9 @@ class CustomGenomePipeline(luigi.Task):
             # for k in range(1, MAX_ANCESTRAL_K + 1):
             #     yield RScript_Ggplot_Admixture_K(groups[group], GENOME, TARGETS, group, k)
 
-            # run flashpca for each population
-            yield PlotFlashPCA(groups[group], GENOME, TARGETS, group)
+            # run flashpca for each population (for the top 5 components)
+            for pcs1, pcs2 in [(1,2), (3,4), (5,6)]:
+                yield PlotFlashPCA(groups[group], GENOME, TARGETS, group, pcs1, pcs2)
 
         yield PlotPhyloTree(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
