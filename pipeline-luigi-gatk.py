@@ -135,8 +135,6 @@ class CurlDownload(luigi.Task):
         with self.output().open('w') as fout:
             fout.write(stdout)
 
-        print "====== cURL Downloading file ======"
-
 
 class SamplePairedEndFastq(luigi.Task):
     """
@@ -155,8 +153,6 @@ class SamplePairedEndFastq(luigi.Task):
                  "--split-files",        # split paired end files
                  "--outdir", "./fastq",  # output directory
                  self.sample])
-
-        print "====== Downloaded Paired-end FASTQ ======"
 
 
 class ReferenceGenomeFasta(luigi.Task):
@@ -181,8 +177,6 @@ class ReferenceGenomeFasta(luigi.Task):
         with self.output().open('w') as fout:
             fout.write(fasta)
 
-        print "====== Downloaded genome FASTA ======"
-
 
 class SamtoolsFaidx(luigi.Task):
     """
@@ -200,8 +194,6 @@ class SamtoolsFaidx(luigi.Task):
         run_cmd(["samtools1.3",
                  "faidx",                              # index needed for CRAM files
                  "fasta/{0}.fa".format(self.genome)])  # input file
-
-        print "====== Built the samtools FASTA index ======"
 
 
 class PicardCreateSequenceDictionary(luigi.Task):
@@ -223,8 +215,6 @@ class PicardCreateSequenceDictionary(luigi.Task):
                  "R=fasta/{0}.fa".format(self.genome),     # reference fasta file
                  "O=fasta/{0}.dict".format(self.genome)])  # dictionary file
 
-        print "====== Built the picard sequence dictionary ======"
-
 
 class BwaIndexBwtsw(luigi.Task):
     """
@@ -245,8 +235,6 @@ class BwaIndexBwtsw(luigi.Task):
                  "index",                              # index needed for bwa alignment
                  "-a", "bwtsw",                        # algorithm suitable for mammals
                  "fasta/{0}.fa".format(self.genome)])  # input file
-
-        print "====== Built the BWA index ======"
 
 
 class BwaMem(luigi.Task):
@@ -279,8 +267,6 @@ class BwaMem(luigi.Task):
         with self.output().open('w') as fout:
             fout.write(sam)
 
-        print "====== Aligned the FASTQ using BWA ======"
-
 
 class SamtoolsSortBam(luigi.Task):
     """
@@ -307,8 +293,6 @@ class SamtoolsSortBam(luigi.Task):
         # save the BAM file
         with self.output().open('w') as fout:
             fout.write(bam)
-
-        print "===== Converted SAM file to BAM ======"
 
 
 class PicardMarkDuplicates(luigi.Task):
@@ -342,8 +326,6 @@ class PicardMarkDuplicates(luigi.Task):
                  "REMOVE_DUPLICATES=true",
                  "QUIET=true"])
 
-        print "==== Removed Duplicates from BAM ===="
-
 
 class SamtoolsIndexBam(luigi.Task):
     """
@@ -364,8 +346,6 @@ class SamtoolsIndexBam(luigi.Task):
                  "index",
                  "-b",                                      # create a BAI index
                  "bam/{0}.rmdup.bam".format(self.sample)])  # file to index
-
-        print "==== Indexing CRAM ===="
 
 
 class GatkHaplotypeCaller(luigi.Task):
@@ -401,8 +381,6 @@ class GatkHaplotypeCaller(luigi.Task):
                  "-I", "bam/{0}.rmdup.bam".format(self.sample),
                  "-o", "vcf/{0}.vcf".format(self.sample)])
 
-        print "===== Created gVCF for sample ======="
-
 
 class GatkGenotypeGVCFs(luigi.Task):
     """
@@ -433,8 +411,6 @@ class GatkGenotypeGVCFs(luigi.Task):
                  "-o", "vcf/{0}.vcf".format(self.population)]
                 + vcf_files)
 
-        print "===== Joint genotyped population ======="
-
 
 class SiteFrequencySpectrum(luigi.Task):
     """
@@ -463,8 +439,6 @@ class SiteFrequencySpectrum(luigi.Task):
         with self.output().open('w') as fout:
             fout.write(fsdata)
 
-        print "===== Generated the site frequency spectrum  ======="
-
 
 class GatkSelectVariants(luigi.Task):
     """
@@ -491,8 +465,6 @@ class GatkSelectVariants(luigi.Task):
                  "-o", "vcf/{0}.variant.vcf".format(self.population),
                  "--selectTypeToInclude", "SNP",
                  "--restrictAllelesTo", "BIALLELIC"])
-
-        print "===== Selected variant sites ======="
 
 
 class PlinkMakeBed(luigi.Task):
@@ -536,8 +508,6 @@ class PlinkMakeBed(luigi.Task):
                  "--make-bed",
                  "--file", "ped/{0}".format(self.population),
                  "--out", "bed/{0}".format(self.population)])
-
-        print "===== Created population BED file ======="
 
 
 class PlinkMergeBeds(luigi.Task):
@@ -611,8 +581,6 @@ class PlinkMergeBeds(luigi.Task):
         for tmp in glob.glob("./bed/*{}*".format(suffix)):
             os.remove(tmp)
 
-        print "===== Merged BED files ======="
-
 
 class PlinkPruneBed(luigi.Task):
     """
@@ -644,8 +612,6 @@ class PlinkPruneBed(luigi.Task):
                  "--extract", "bed/{0}.prune.in".format(self.group),
                  "--bfile", "bed/{0}".format(self.group),
                  "--out", "bed/{0}.pruned".format(self.group)])
-
-        print "===== Pruned BED file ======="
 
 
 class AdmixtureK(luigi.Task):
@@ -683,8 +649,6 @@ class AdmixtureK(luigi.Task):
         # save the log file
         with self.output()[2].open('w') as fout:
             fout.write(log)
-
-        print "===== Admixture K ======="
 
 
 class GgplotAdmixtureK(luigi.Task):
@@ -725,8 +689,6 @@ class GgplotAdmixtureK(luigi.Task):
         run_cmd(["Rscript",
                  "admixture.R",
                  "admix/{0}.pruned.{1}".format(self.group, self.K)])
-
-        print "===== RScript ggplot admixture ======="
 
 
 class AdmixtureCV(luigi.Task):
@@ -774,8 +736,6 @@ class AdmixtureCV(luigi.Task):
         for k, cv in bestfit:
             yield GgplotAdmixtureK(self.populations, self.genome, self.targets, self.group, int(k))
 
-        print "===== Admixture ======="
-
 
 class FlashPCA(luigi.Task):
     """
@@ -805,8 +765,6 @@ class FlashPCA(luigi.Task):
 
         # restore previous working directory
         os.chdir('..')
-
-        print "===== Flashpca ======="
 
 
 class GgplotFlashPCA(luigi.Task):
@@ -841,8 +799,6 @@ class GgplotFlashPCA(luigi.Task):
         run_cmd(["Rscript",
                  "flashpca.R",
                  "flashpca/pca_{0}".format(self.group)])
-
-        print "===== RScript ggplot flashpca ======="
 
 
 class PlotPhyloTree(luigi.Task):
@@ -888,7 +844,6 @@ class PlotPhyloTree(luigi.Task):
                  "tree/{0}.data".format(self.group),
                  "tree/{0}.tree".format(self.group)])
 
-        print "===== RScript tree ======="
 
 class CustomGenomePipeline(luigi.Task):
     """
