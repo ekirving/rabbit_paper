@@ -1,18 +1,12 @@
 #!/usr/bin/python
 import luigi
-import multiprocessing
-import os
-import os.path
-import subprocess
+import subprocess, multiprocessing
+import os, os.path, glob
+import random, re, datetime, hashlib
 from shutil import copyfile
-import glob
-import random
-import re
 
 # import the custom vcf parser
 from vcfparser import *
-
-# Based on example pipeline from http://coderscrowd.com/app/public/codes/view/229
 
 # the reference genome
 GENOME = "OryCun2.0"
@@ -54,7 +48,7 @@ MAX_ANCESTRAL_K = 10
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
 
-def run_cmd(cmd, shell=False):
+def run_cmd(cmd, returnout=True, shell=False):
     """
     Executes the given command in a system subprocess
 
@@ -66,8 +60,15 @@ def run_cmd(cmd, shell=False):
     # subprocess only accepts strings
     cmd = [str(args) for args in cmd]
 
-    # TODO write all bash commands to a script and log it
-    print cmd
+    # has the command so we can match the logs together
+    m = hashlib.md5()
+    m.update(str(cmd))
+
+    # log the command
+    with open('log/luigi.cmd.log', 'a') as fout:
+        fout.write("{time} {hash}# {actn}\n".format(time=str(datetime.datetime.now()),
+                                                   hash=m.hexdigest(),
+                                                   actn=" ".join(cmd)))
 
     # run the command
     proc = subprocess.Popen(cmd,
@@ -78,14 +79,18 @@ def run_cmd(cmd, shell=False):
     # fetch the output and error
     (stdout, stderr) = proc.communicate()
 
-    # TODO remove when done debugging
-    print vars(proc)
-
     # bail if something went wrong
     if proc.returncode:
         raise Exception(stderr)
 
-    return stdout
+    if returnout:
+        return stdout
+    else:
+        logfile = ''
+        # send output to a log file
+        with open(logfile, 'w') as fout:
+            pass
+
 
 
 def unzip_file(gzip):
@@ -252,7 +257,8 @@ class BwaMem(luigi.Task):
                        "-R", read_group,                             # read group metadata
                        "fasta/{0}.fa".format(self.genome),           # reference genome
                        "fastq/{0}_1.fastq.gz".format(self.sample),   # pair 1
-                       "fastq/{0}_2.fastq.gz".format(self.sample)])  # pair 2
+                       "fastq/{0}_2.fastq.gz".format(self.sample)],  # pair 2
+                      returnout=True)
 
         # save the SAM file
         with self.output().open('w') as fout:
@@ -279,7 +285,8 @@ class SamtoolsSortBam(luigi.Task):
                        "-l", DEFAULT_COMPRESSION,           # level of compression
                        "-@", MAX_CPU_CORES,                 # number of cores
                        "-O", "bam",                         # output a BAM file
-                       "sam/{0}.sam".format(self.sample)])  # input a SAM file
+                       "sam/{0}.sam".format(self.sample)],  # input a SAM file
+                      returnout=True)
 
         # save the BAM file
         with self.output().open('w') as fout:
@@ -482,7 +489,7 @@ class PlinkMakeBed(luigi.Task):
                  "--out", "ped/{0}".format(self.population)])
 
         # use awk to add variant IDs, so we can identify polyallelic sites during merge
-        map = run_cmd(["awk '$2=$1\"-\"$4' ped/" + str(self.population) + ".map", True])
+        map = run_cmd(["awk '$2=$1\"-\"$4' ped/" + str(self.population) + ".map"], returnout=True, shell=True)
 
         # replace the old map file
         with open("ped/{0}.map".format(self.population), 'w') as fout:
@@ -623,10 +630,11 @@ class AdmixtureK(luigi.Task):
 
         # TODO what about bootstrapping (-B / -B2000)
         log = run_cmd(["admixture",
-                       "-j{}".format(MAX_CPU_CORES),           # use multi-threading
-                       "--cv",                                 # include cross-validation standard errors
-                       "../bed/{0}.pruned.bed".format(self.group), # using this input file
-                       self.k])                                # for K ancestral populations
+                       "-j{}".format(MAX_CPU_CORES),                # use multi-threading
+                       "--cv",                                      # include cross-validation standard errors
+                       "../bed/{0}.pruned.bed".format(self.group),  # using this input file
+                       self.k],  # for K ancestral populations
+                      returnout=True)
 
         # restore previous working directory
         os.chdir('..')
@@ -660,7 +668,7 @@ class PlotAdmixtureK(luigi.Task):
         awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) + ".fam | " \
               "paste - admix/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
 
-        data = run_cmd([awk], True)
+        data = run_cmd([awk], returnout=True, shell=True)
 
         # compose the header row
         header = ["Pop{}".format(i) for i in range(1, int(self.k) + 1)]
@@ -699,7 +707,7 @@ class AdmixtureCV(luigi.Task):
     def run(self):
 
         # use grep to extract the cross-validation scores from all the log files
-        cvs = run_cmd(["grep -h CV admix/{0}*.log".format(self.group)], True)
+        cvs = run_cmd(["grep -h CV admix/{0}*.log".format(self.group)], returnout=True, shell=True)
 
         # extract the K value and CV score
         # e.g. "CV error (K=1): 1.20340"
@@ -746,10 +754,10 @@ class FlashPCA(luigi.Task):
         # flashpca only outputs to the current directory
         os.chdir('./flashpca')
 
-        log = run_cmd(["flashpca",
-                       "--bfile", "../bed/{0}.pruned".format(self.group),
-                       "--numthreads", MAX_CPU_CORES,
-                       "--suffix", "_{0}.txt".format(self.group)])
+        run_cmd(["flashpca",
+                 "--bfile", "../bed/{0}.pruned".format(self.group),
+                 "--numthreads", MAX_CPU_CORES,
+                 "--suffix", "_{0}.txt".format(self.group)])
 
         # restore previous working directory
         os.chdir('..')
@@ -779,7 +787,7 @@ class PlotFlashPCA(luigi.Task):
 
         # use awk to add population and sample names, needed for the plot
         data = run_cmd(["awk '{print $1\"\t\"$2}' bed/" + str(self.group) + ".fam | "
-                        "paste - flashpca/pcs_" + str(self.group) + ".txt"], True)
+                        "paste - flashpca/pcs_" + str(self.group) + ".txt"], returnout=True, shell=True)
 
         # save the labeled file
         with self.output()[0].open('w') as fout:
@@ -826,10 +834,10 @@ class PlotPhyloTree(luigi.Task):
         awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' ./bed/" + str(self.group) + ".fam"
 
         # fetch the names as a row
-        head = run_cmd([awk + " | xargs"], True)
+        head = run_cmd([awk + " | xargs"], returnout=True, shell=True)
 
         # add the samples names as a column to the mdist data
-        data = run_cmd([awk + " | paste - ./bed/{0}.mdist".format(self.group)], True)
+        data = run_cmd([awk + " | paste - ./bed/{0}.mdist".format(self.group)], returnout=True, shell=True)
 
         # save the labeled file
         with self.output()[0].open('w') as fout:
@@ -854,7 +862,6 @@ class CustomGenomePipeline(luigi.Task):
         return False
 
     def requires(self):
-
         # make the SFS for dadi
         yield SiteFrequencySpectrum(POPULATIONS, GENOME, TARGETS)
 
