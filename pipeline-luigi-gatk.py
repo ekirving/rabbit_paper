@@ -769,6 +769,7 @@ class PlotFlashPCA(luigi.Task):
 
     def output(self):
         return [luigi.LocalTarget("flashpca/pca_{0}.data".format(self.group)),
+                luigi.LocalTarget("flashpca/pve_{0}.txt".format(self.group)),
                 luigi.LocalTarget("pdf/{0}.PCA.pdf".format(self.group))]
 
     def run(self):
@@ -787,7 +788,8 @@ class PlotFlashPCA(luigi.Task):
         run_cmd(["Rscript",
                  "plot-flashpca.R",
                  self.output()[0].path,
-                 self.output()[1].path])
+                 self.output()[1].path,
+                 self.output()[2].path])
 
 
 class PlotPhyloTree(luigi.Task):
