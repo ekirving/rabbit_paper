@@ -115,25 +115,16 @@ def unzip_file(gzip):
             raise e
 
 
-class CurlDownload(luigi.Task):
+def curl_download(url, file):
     """
     Downloads a remote url to a local file path using cURL
     """
-    url = luigi.Parameter()
-    file = luigi.Parameter()
 
-    def output(self):
-        return luigi.LocalTarget(self.file)
-
-    def run(self):
-        # download the file
-        stdout = run_cmd(["curl",
-                          "-s",       # download silently
-                          self.url])  # from this url
-
-        # save the file
-        with self.output().open('w') as fout:
-            fout.write(stdout)
+    # download the file
+    run_cmd(["curl",
+             "-s",              # download silently
+             "--output", file,  # output path
+             url])              # from this url
 
 
 class SamplePairedEndFastq(luigi.Task):
@@ -162,17 +153,18 @@ class ReferenceGenomeFasta(luigi.Task):
     genome = luigi.Parameter()
     # url = luigi.Parameter()
 
-    def requires(self):
-        global GENOME_URL
-        # download the gzipped fasta file of the reference genome
-        return CurlDownload(GENOME_URL, "fasta/{0}.fa.gz".format(self.genome))
-
     def output(self):
         return luigi.LocalTarget("fasta/{0}.fa".format(self.genome))
 
     def run(self):
+
+        zipfile = "fasta/{0}.fa.gz".format(self.genome)
+
+        # download the gzipped fasta file of the reference genome
+        curl_download(GENOME_URL, zipfile)
+
         # unzip the file
-        fasta = unzip_file(self.requires().file)
+        fasta = unzip_file(zipfile)
 
         with self.output().open('w') as fout:
             fout.write(fasta)
