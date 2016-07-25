@@ -1,14 +1,17 @@
 #!/usr/bin/env Rscript
 suppressWarnings(library("ape"))
 
+# get the command line arguments
 args <- commandArgs(trailingOnly = TRUE)
-data=args[1]
-out=args[2]
-setwd("/Users/Evan/Dropbox/Code/rabbits")
+data_file=args[1]
+tree_file=args[2]
+pdf_file=args[3]
 
-data <- "tree/all-pops.data"
+# TODO remove when done testing
+#setwd("/Users/Evan/Dropbox/Code/rabbits")
+#data_file <- "tree/all-pops.data"
 
-m<-as.matrix(read.table(data, head=T, row.names=1))
+m<-as.matrix(read.table(data_file, head=T, row.names=1))
 tr=bionj(m)
 tr<-root(tr, outgroup = "OUT-842", resolve.root = TRUE)
 
@@ -26,9 +29,9 @@ col[col=="IB2"] = collist[4]
 col[col=="OUT"] = collist[5]
 
 # save the tree data
-write.tree(tr, file=out)
+write.tree(tr, file=tree_file)
 
 # plot the tree
-pdf(file=paste(out, "pdf", sep = "."), width = 10, height = 7)
+pdf(file=pdf_file, width = 10, height = 7)
 plot(tr, type='phylogram', tip.color=col)
 dev.off()

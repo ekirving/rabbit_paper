@@ -651,7 +651,7 @@ class AdmixtureK(luigi.Task):
             fout.write(log)
 
 
-class GgplotAdmixtureK(luigi.Task):
+class PlotAdmixtureK(luigi.Task):
     """
     Use ggplot to plot the admixture Q stats
     """
@@ -666,7 +666,8 @@ class GgplotAdmixtureK(luigi.Task):
 
     def output(self):
         extensions = ['data', 'pdf']
-        return [luigi.LocalTarget("admix/{0}.pruned.{1}.{2}".format(self.group, self.k, ext)) for ext in extensions]
+        return [luigi.LocalTarget("admix/{0}.pruned.{1}.data".format(self.group, self.k)),
+                luigi.LocalTarget("pdf/{0}.K.{1}.pdf".format(self.group, self.k))]
 
     def run(self):
 
@@ -687,8 +688,9 @@ class GgplotAdmixtureK(luigi.Task):
 
         # generate a PDF of the admixture stacked column chart
         run_cmd(["Rscript",
-                 "admixture.R",
-                 "admix/{0}.pruned.{1}".format(self.group, self.K)])
+                 "plot-admix-k.R",
+                 self.output()[0].path,
+                 self.output()[1].path])
 
 
 class AdmixtureCV(luigi.Task):
@@ -706,8 +708,8 @@ class AdmixtureCV(luigi.Task):
             yield AdmixtureK(self.populations, self.genome, self.targets, self.group, k)
 
     def output(self):
-        extensions = ["data", "pdf"]
-        return [luigi.LocalTarget("admix/{0}.CV.{1}".format(self.group, ext)) for ext in extensions]
+        return [luigi.LocalTarget("admix/{0}.CV.data".format(self.group)),
+                luigi.LocalTarget("pdf/{0}.CV.pdf".format(self.group)),]
 
     def run(self):
 
@@ -726,15 +728,16 @@ class AdmixtureCV(luigi.Task):
 
         # plot the CV values as a line graph
         run_cmd(["Rscript",
-                 "ggplot-cv.R",
-                 "admix/{0}.CV".format(self.group)])
+                 "plot-admix-cv.R",
+                 self.output()[0].path,
+                 self.output()[1].path])
 
         # get the three lowest CV scores
         bestfit = sorted(data, key=lambda x: x[1])[0:3]
 
         # plot the admixture percentages for the 3 best fitting values of k
         for k, cv in bestfit:
-            yield GgplotAdmixtureK(self.populations, self.genome, self.targets, self.group, int(k))
+            yield PlotAdmixtureK(self.populations, self.genome, self.targets, self.group, int(k))
 
 
 class FlashPCA(luigi.Task):
@@ -767,7 +770,7 @@ class FlashPCA(luigi.Task):
         os.chdir('..')
 
 
-class GgplotFlashPCA(luigi.Task):
+class PlotFlashPCA(luigi.Task):
     """
     Use ggplot to plot the PCA
     """
@@ -780,8 +783,8 @@ class GgplotFlashPCA(luigi.Task):
         return FlashPCA(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
-        extensions = ['data', 'pdf']
-        return [luigi.LocalTarget("flashpca/pca_{0}.{1}".format(self.group, ext)) for ext in extensions]
+        return [luigi.LocalTarget("flashpca/pca_{0}.data".format(self.group)),
+                luigi.LocalTarget("pdf/{0}.PCA.pdf".format(self.group))]
 
     def run(self):
 
@@ -797,8 +800,9 @@ class GgplotFlashPCA(luigi.Task):
 
         # generate a PDF of the PCA plot
         run_cmd(["Rscript",
-                 "flashpca.R",
-                 "flashpca/pca_{0}".format(self.group)])
+                 "plot-flashpca.R",
+                 self.output()[0].path,
+                 self.output()[1].path])
 
 
 class PlotPhyloTree(luigi.Task):
@@ -814,10 +818,13 @@ class PlotPhyloTree(luigi.Task):
         return PlinkPruneBed(self.populations, self.genome, self.targets, self.group)
 
     def output(self):
-        return luigi.LocalTarget("tree/{0}.tree".format(self.group))
+        return [luigi.LocalTarget("tree/{0}.data".format(self.group)),
+                luigi.LocalTarget("tree/{0}.tree".format(self.group)),
+                luigi.LocalTarget("pdf/{0}.Phylo.pdf".format(self.group))]
 
     def run(self):
 
+        # TODO what about bootstrapping?
         # make the distance matrix
         run_cmd(["plink",
                  "--distance", "square", "1-ibs",
@@ -834,15 +841,16 @@ class PlotPhyloTree(luigi.Task):
         data = run_cmd([awk + " | paste - ./bed/{0}.mdist".format(self.group)], True)
 
         # save the labeled file
-        with open("tree/{0}.data".format(self.group), 'w') as fout:
+        with self.output()[0].open('w') as fout:
             fout.write("\t"+head)
             fout.write(data)
 
         # generate a tree from the labeled data
         run_cmd(["Rscript",
-                 "tree.R",
-                 "tree/{0}.data".format(self.group),
-                 "tree/{0}.tree".format(self.group)])
+                 "plot-phylo-tree.R",
+                 self.output()[0].path,
+                 self.output()[1].path,
+                 self.output()[2].path])
 
 
 class CustomGenomePipeline(luigi.Task):
@@ -880,7 +888,7 @@ class CustomGenomePipeline(luigi.Task):
             #     yield RScript_Ggplot_Admixture_K(groups[group], GENOME, TARGETS, group, k)
 
             # run flashpca for each population
-            yield GgplotFlashPCA(groups[group], GENOME, TARGETS, group)
+            yield PlotFlashPCA(groups[group], GENOME, TARGETS, group)
 
         yield PlotPhyloTree(POPULATIONS, GENOME, TARGETS, 'all-pops')
 
