@@ -22,26 +22,24 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
 # file containing the list of sequence capture regions, format <chr>:<start>-<stop>
 TARGETS = './targets.interval_list'
 
-# TODO investigate luigi.FrozenOrderedDict()
+# populations and sample accession codes (n=28)
+POPULATIONS = {
 
-# population, accession codes
-POPULATIONS = dict()  # (n=28)
+    # Wild mountain hare / Lepus timidus (n=1)
+    'OUT': ['SRR824842'],
 
-# Wild mountain hare / Lepus timidus (n=1)
-POPULATIONS['OUT'] = ['SRR824842']
+    # Domestic breeds (n=8)
+    'DOM': ['SRR997325', 'SRR997320', 'SRR997321', 'SRR997327', 'SRR997323', 'SRR997326', 'SRR997324', 'SRR997322'],
 
-# Domestic breeds (n=8)
-POPULATIONS['DOM'] = ['SRR997325', 'SRR997320', 'SRR997321', 'SRR997327', 'SRR997323', 'SRR997326', 'SRR997324',
-                      'SRR997322']
+    # Wild French (n=7)
+    'WLD-FRE': ['SRR997319', 'SRR997317', 'SRR997304', 'SRR997303', 'SRR997318', 'SRR997316', 'SRR997305'],
 
-# Wild French (n=7)
-POPULATIONS['WLD-FRE'] = ['SRR997319', 'SRR997317', 'SRR997304', 'SRR997303', 'SRR997318', 'SRR997316', 'SRR997305']
+    # Wild Iberian / Oryctolagus cuniculus algirus (n=6)
+    'WLD-IB1': ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765'],
 
-# Wild Iberian / Oryctolagus cuniculus algirus (n=6)
-POPULATIONS['WLD-IB1'] = ['SRR827758', 'SRR827761', 'SRR827762', 'SRR827763', 'SRR827764', 'SRR827765']
-
-# Wild Iberian / Oryctolagus cuniculus cuniculus (n=6)
-POPULATIONS['WLD-IB2'] = ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
+    # Wild Iberian / Oryctolagus cuniculus cuniculus (n=6)
+    'WLD-IB2': ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
+}
 
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
@@ -896,6 +894,10 @@ class CustomGenomePipeline(luigi.Task):
     """
     Run all the samples through the pipeline
     """
+
+    def complete(self):
+        # always run the pipeline
+        return False
 
     def requires(self):
 
