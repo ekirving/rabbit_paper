@@ -138,7 +138,7 @@ class SamplePairedEndFastq(luigi.Task):
 
     def run(self):
 
-        # NCBI SRA toolkit
+        # use the NCBI SRA toolkit to fetch the fastq files
         run_cmd(["fastq-dump",
                  "--gzip",               # output gzipped files
                  "--split-files",        # split paired end files
@@ -151,7 +151,6 @@ class ReferenceGenomeFasta(luigi.Task):
     Fetches the reference genome
     """
     genome = luigi.Parameter()
-    # url = luigi.Parameter()
 
     def output(self):
         return luigi.LocalTarget("fasta/{0}.fa".format(self.genome))
@@ -160,6 +159,7 @@ class ReferenceGenomeFasta(luigi.Task):
 
         zipfile = "fasta/{0}.fa.gz".format(self.genome)
 
+        # TODO install ensembl perl API for a generic method of downloading fasta files
         # download the gzipped fasta file of the reference genome
         curl_download(GENOME_URL, zipfile)
 
