@@ -661,12 +661,17 @@ class PlinkPruneBed(luigi.Task):
 
     def run(self):
 
-        # apply the prune list (NB. list is calcualted from the IN_GROUP rather than the current group)
-        run_cmd(["plink",
-                 "--make-bed",
-                 "--extract", "bed/{0}.prune.in".format(IN_GROUP),
-                 "--bfile", "bed/{0}".format(self.group),
-                 "--out", "bed/{0}.pruned".format(self.group)])
+        # do no pruning...
+        for ext in ['bed', 'bim', 'fam']:
+            copyfile("bed/{0}.{1}".format(self.group, ext),
+                     "bed/{0}.pruned.{1}".format(self.group, ext))
+
+        # # apply the prune list (NB. list is calcualted from the IN_GROUP rather than the current group)
+        # run_cmd(["plink",
+        #          "--make-bed",
+        #          "--extract", "bed/{0}.prune.in".format(IN_GROUP),
+        #          "--bfile", "bed/{0}".format(self.group),
+        #          "--out", "bed/{0}.pruned".format(self.group)])
 
 
 class AdmixtureK(luigi.Task):
