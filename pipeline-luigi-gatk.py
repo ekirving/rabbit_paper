@@ -656,22 +656,21 @@ class PlinkPruneBed(luigi.Task):
                 PlinkIndepPairwise(IN_GROUP, self.genome, self.targets)]
 
     def output(self):
-        extensions = ['bed', 'bim', 'fam']
-        return [luigi.LocalTarget("bed/{0}.pruned.{1}".format(self.group, ext)) for ext in extensions]
+        extensions = ['ped', 'map']
+        return [luigi.LocalTarget("ped/{0}.pruned.{1}".format(self.group, ext)) for ext in extensions]
 
     def run(self):
 
-        # do no pruning...
-        for ext in ['bed', 'bim', 'fam']:
-            copyfile("bed/{0}.{1}".format(self.group, ext),
-                     "bed/{0}.pruned.{1}".format(self.group, ext))
+        # # do no pruning...
+        # for ext in ['bed', 'bim', 'fam']:
+        #     copyfile("bed/{0}.{1}".format(self.group, ext),
+        #              "bed/{0}.pruned.{1}".format(self.group, ext))
 
         # # apply the prune list (NB. list is calcualted from the IN_GROUP rather than the current group)
-        # run_cmd(["plink",
-        #          "--make-bed",
-        #          "--extract", "bed/{0}.prune.in".format(IN_GROUP),
-        #          "--bfile", "bed/{0}".format(self.group),
-        #          "--out", "bed/{0}.pruned".format(self.group)])
+        run_cmd(["plink",
+                 "--recode12",
+                 "--bfile", "bed/{0}".format(self.group),
+                 "--out", "bed/{0}.pruned".format(self.group)])
 
 
 class AdmixtureK(luigi.Task):
@@ -699,7 +698,7 @@ class AdmixtureK(luigi.Task):
         log = run_cmd(["admixture",
                        "-j{}".format(MAX_CPU_CORES),                # use multi-threading
                        "--cv",                                      # include cross-validation standard errors
-                       "../bed/{0}.pruned.bed".format(self.group),  # using this input file
+                       "../ped/{0}.pruned.ped".format(self.group),  # using this input file
                        self.k],  # for K ancestral populations
                       returnout=True, pwd='../')
 
