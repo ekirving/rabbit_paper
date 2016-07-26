@@ -761,7 +761,7 @@ class AdmixtureCV(luigi.Task):
 
     def requires(self):
         # run admixture or each population and each value of K
-        for k in range(1, MAX_ANCESTRAL_K + 1):
+        for k in range(1, MAX_ANCESTRAL_K):
             yield AdmixtureK(self.group, self.genome, self.targets, k)
 
     def output(self):
