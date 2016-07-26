@@ -670,7 +670,7 @@ class PlinkPruneBed(luigi.Task):
         run_cmd(["plink",
                  "--recode12",
                  "--bfile", "bed/{0}".format(self.group),
-                 "--out", "bed/{0}.pruned".format(self.group)])
+                 "--out", "ped/{0}.pruned".format(self.group)])
 
 
 class AdmixtureK(luigi.Task):
