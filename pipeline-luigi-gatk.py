@@ -60,7 +60,7 @@ DEFAULT_COMPRESSION = 6
 MIN_GENOTYPE_QUAL = 30
 
 # the maximum number of ancestral populatons to run admiture for
-MAX_ANCESTRAL_K = 10
+MAX_ANCESTRAL_K = 20
 
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
