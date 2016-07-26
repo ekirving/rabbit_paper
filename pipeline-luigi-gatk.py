@@ -50,6 +50,9 @@ GROUPS['no-out-ib1'] = POPULATIONS.copy()
 del GROUPS['no-out-ib1']['OUT']
 del GROUPS['no-out-ib1']['WLD-IB1']
 
+# the population group that represents the core of the analysis, used for calculating the SNP list for analysis
+IN_GROUP = 'no-out-ib1'
+
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
 
@@ -606,9 +609,10 @@ class PlinkMergeBeds(luigi.Task):
             os.remove(tmp)
 
 
-class PlinkPruneBed(luigi.Task):
+class PlinkIndepPairwise(luigi.Task):
     """
-    Prune the genome BED file for linkage disequilibrium
+    Produce a list of SNPs with high discriminating power, by filtering out minor allele frequency and sites under
+    linkage disequilibrium
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
@@ -618,21 +622,49 @@ class PlinkPruneBed(luigi.Task):
         return PlinkMergeBeds(self.group, self.genome, self.targets)
 
     def output(self):
+        extensions = ['in', 'out']
+        return [luigi.LocalTarget("bed/{0}.prune.{1}".format(self.group, ext)) for ext in extensions]
+
+    def run(self):
+
+        # apply a filter on minor allele frequencies
+        # retains ~94k SNPs (from ~123k)
+        run_cmd(["plink",
+                 "--make-bed",
+                 "--maf", "0.10",  # allele must be observed > 10% of the time
+                 "--bfile", "bed/{0}".format(self.group),
+                 "--out", "bed/{0}.maf-0.1".format(self.group)])
+
+        # calculate the prune list (prune.in / prune.out)
+        # retains ~12k SNPs (from ~94k)
+        run_cmd(["plink",
+                 "--indep-pairwise", 50, 10, 0.5,  # accept R^2 coefficient of up to 0.5
+                 "--bfile", "bed/{0}.maf-0.1".format(self.group),
+                 "--out", "bed/{0}".format(self.group)])
+
+
+class PlinkPruneBed(luigi.Task):
+    """
+    Prune the merged group BED file using the prune.in list from PlinkIndepPairwise()
+    """
+    group = luigi.Parameter()
+    genome = luigi.Parameter()
+    targets = luigi.Parameter()
+
+    def requires(self):
+        return [PlinkMergeBeds(self.group, self.genome, self.targets),
+                PlinkIndepPairwise(IN_GROUP, self.genome, self.targets)]
+
+    def output(self):
         extensions = ['bed', 'bim', 'fam']
         return [luigi.LocalTarget("bed/{0}.pruned.{1}".format(self.group, ext)) for ext in extensions]
 
     def run(self):
 
-        # calcualte the prune list (prune.in / prune.out)
-        run_cmd(["plink",
-                 "--indep-pairwise", 50, 10, 0.1,
-                 "--bfile", "bed/{0}".format(self.group),
-                 "--out", "bed/{0}".format(self.group)])
-
-        # apply the prune list
+        # apply the prune list (NB. list is calcualted from the IN_GROUP rather than the current group)
         run_cmd(["plink",
                  "--make-bed",
-                 "--extract", "bed/{0}.prune.in".format(self.group),
+                 "--extract", "bed/{0}.prune.in".format(IN_GROUP),
                  "--bfile", "bed/{0}".format(self.group),
                  "--out", "bed/{0}.pruned".format(self.group)])
 
