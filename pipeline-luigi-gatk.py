@@ -817,16 +817,17 @@ class PlotFlashPCA(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    pcs1 = luigi.IntParameter()
-    pcs2 = luigi.IntParameter()
 
     def requires(self):
         return FlashPCA(self.group, self.genome)
 
     def output(self):
-        return [luigi.LocalTarget("flashpca/pca_{0}.data".format(self.group)),
-                luigi.LocalTarget("flashpca/pve_{0}.txt".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.PCA.{1}.{2}.pdf".format(self.group, self.pcs1, self.pcs2))]
+
+        yield luigi.LocalTarget("flashpca/pca_{0}.data".format(self.group))
+        yield luigi.LocalTarget("flashpca/pve_{0}.txt".format(self.group))
+
+        for pcs1, pcs2 in [(1, 2), (3, 4), (5, 6)]:
+            yield luigi.LocalTarget("pdf/{0}.PCA.{1}.{2}.pdf".format(self.group, pcs1, pcs2))
 
     def run(self):
 
@@ -838,23 +839,25 @@ class PlotFlashPCA(luigi.Task):
         with self.output()[0].open('w') as fout:
             fout.write(data)
 
-        # generate both labeled and unlabeled PDFs
+        # plot the first 6 components
+        for pcs1, pcs2 in [(1, 2), (3, 4), (5, 6)]:
 
-        pdfs = {
-            0: "pdf/{0}.PCA.{1}.{2}.pdf".format(self.group, self.pcs1, self.pcs2),
-            1: "pdf/{0}.PCA.{1}.{2}.labeled.pdf".format(self.group, self.pcs1, self.pcs2)
-        }
+            # generate both labeled and unlabeled PDFs
+            pdfs = {
+                0: "pdf/{0}.PCA.{1}.{2}.pdf".format(self.group, pcs1, pcs2),
+                1: "pdf/{0}.PCA.{1}.{2}.labeled.pdf".format(self.group, pcs1, pcs2)
+            }
 
-        # generate a PDF of the PCA plot
-        for labeled, pdf_path in pdfs.iteritems():
-            run_cmd(["Rscript",
-                     "plot-flashpca.R",
-                     self.output()[0].path,  # pca data
-                     self.output()[1].path,  # pve data
-                     pdf_path,               # pdf location
-                     self.pcs1,              # component for x-axis
-                     self.pcs2,              # component for y-axis
-                     labeled])               # show point labels (0/1)
+            for labeled, pdf_path in pdfs.iteritems():
+                # generate a PDF of the PCA plot
+                run_cmd(["Rscript",
+                         "plot-flashpca.R",
+                         self.output()[0].path,  # pca data
+                         self.output()[1].path,  # pve data
+                         pdf_path,               # pdf location
+                         pcs1,                   # component for x-axis
+                         pcs2,                   # component for y-axis
+                         labeled])               # show point labels (0/1)
 
 
 class PlotPhyloTree(luigi.Task):
@@ -925,8 +928,7 @@ class CustomGenomePipeline(luigi.Task):
 
         # run flashpca for each population (for the top 6 components)
         for group in GROUPS:
-            for pcs1, pcs2 in [(1,2), (3,4), (5,6)]:
-                yield PlotFlashPCA(group, GENOME, pcs1, pcs2)
+            yield PlotFlashPCA(group, GENOME)
 
 
 if __name__=='__main__':
