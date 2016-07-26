@@ -35,6 +35,20 @@ POPULATIONS = {
     'WLD-IB2': ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
 }
 
+# setup some population groups
+GROUPS = dict()
+
+# one with all the populations
+GROUPS['all-pops'] = POPULATIONS
+
+# one without the outgroup
+del POPULATIONS['OUT']
+GROUPS['no-outgroup'] = POPULATIONS
+
+# and one without either the outgroup or the most divergent wild species (O. cuniculus algirus)
+del POPULATIONS['WLD-IB1']
+GROUPS['no-out-ib1'] = POPULATIONS
+
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
 
@@ -857,37 +871,26 @@ class CustomGenomePipeline(luigi.Task):
     Run all the samples through the pipeline
     """
 
-    def complete(self):
-        # always run the pipeline
-        return False
+    # def complete(self):
+    #     # always run the pipeline
+    #     return False
 
     def requires(self):
+
         # make the SFS for dadi
-        yield SiteFrequencySpectrum(POPULATIONS, GENOME, TARGETS)
+        yield SiteFrequencySpectrum(GROUPS['all-pops'], GENOME, TARGETS)
 
-        # setup some population groups
-        groups = dict()
+        # run admixture
+        yield AdmixtureCV(GROUPS['no-outgroup'], GENOME, TARGETS, 'no-outgroup')
 
-        # one with all the populations
-        groups['all-pops'] = POPULATIONS.copy()
+        # plot a phylogenetic tree
+        yield PlotPhyloTree(GROUPS['all-pops'], GENOME, TARGETS, 'all-pops')
 
-        # and one without the outgroup
-        groups['no-outgroup'] = POPULATIONS.copy()
-        del groups['no-outgroup']['OUT']
-
-        # and one without either the outgroup or the most divergent wild species (O. cuniculus algirus)
-        groups['no-out-ib1'] = POPULATIONS.copy()
-        del groups['no-out-ib1']['OUT']
-        del groups['no-out-ib1']['WLD-IB1']
-
-        for group in groups:
-            # run flashpca for each population (for the top 5 components)
+        # run flashpca for each population (for the top 6 components)
+        for group in GROUPS:
             for pcs1, pcs2 in [(1,2), (3,4), (5,6)]:
-                yield PlotFlashPCA(groups[group], GENOME, TARGETS, group, pcs1, pcs2, True)
+                yield PlotFlashPCA(GROUPS[group], GENOME, TARGETS, group, pcs1, pcs2, True)
 
-        yield PlotPhyloTree(POPULATIONS, GENOME, TARGETS, 'all-pops')
-
-        yield AdmixtureCV(groups['no-outgroup'], GENOME, TARGETS, 'no-outgroup')
 
 if __name__=='__main__':
     luigi.run()
