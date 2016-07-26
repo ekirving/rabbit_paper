@@ -14,7 +14,7 @@ GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/d
              ".dna.toplevel.fa.gz"
 
 # file containing the list of sequence capture regions, format <chr>:<start>-<stop>
-TARGETS = './targets.interval_list'
+TARGETS_LIST = './targets.interval_list'
 
 # populations and sample accession codes (n=28)
 POPULATIONS = {
@@ -373,7 +373,6 @@ class GatkHaplotypeCaller(luigi.Task):
     """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
         # reference must be indexed properly
@@ -396,7 +395,7 @@ class GatkHaplotypeCaller(luigi.Task):
                  "-variant_index_type", "LINEAR",
                  "-variant_index_parameter", "128000",
                  "--output_mode", "EMIT_ALL_SITES",         # produces calls at any callable site
-                 "-L", self.targets,                        # limit to the list of regions defined in the targets file
+                 "-L", TARGETS_LIST,                        # limit to the list of regions defined in the targets file
                  "-stand_emit_conf", "10",                  # min confidence threshold
                  "-stand_call_conf", MIN_GENOTYPE_QUAL,     # min call threshold
                  "-I", "bam/{0}.rmdup.bam".format(self.sample),
@@ -410,7 +409,6 @@ class GatkGenotypeGVCFs(luigi.Task):
     population = luigi.Parameter()
     samples = luigi.ListParameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
         # reference must be indexed properly
@@ -419,7 +417,7 @@ class GatkGenotypeGVCFs(luigi.Task):
 
         # samples must be individually called
         for sample in self.samples:
-            yield GatkHaplotypeCaller(sample, self.genome, self.targets)
+            yield GatkHaplotypeCaller(sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("vcf/{0}.vcf".format(self.population))
@@ -443,11 +441,10 @@ class SiteFrequencySpectrum(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
         for population, samples in GROUPS[self.group].iteritems():
-            yield GatkGenotypeGVCFs(population, samples, self.genome, self.targets)
+            yield GatkGenotypeGVCFs(population, samples, self.genome)
 
     def output(self):
         return luigi.LocalTarget("fsdata/{0}.data".format(self.genome))
@@ -472,7 +469,6 @@ class GatkSelectVariants(luigi.Task):
     population = luigi.Parameter()
     samples = luigi.ListParameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
         # reference must be indexed properly
@@ -480,7 +476,7 @@ class GatkSelectVariants(luigi.Task):
         yield SamtoolsFaidx(self.genome)
 
         # population must have been joint called
-        yield GatkGenotypeGVCFs(self.population, self.samples, self.genome, self.targets)
+        yield GatkGenotypeGVCFs(self.population, self.samples, self.genome)
 
     def output(self):
         return luigi.LocalTarget("vcf/{0}.variant.vcf".format(self.population))
@@ -503,10 +499,9 @@ class PlinkMakeBed(luigi.Task):
     population = luigi.Parameter()
     samples = luigi.ListParameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
-        yield GatkSelectVariants(self.population, self.samples, self.genome, self.targets)
+        yield GatkSelectVariants(self.population, self.samples, self.genome)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -544,11 +539,10 @@ class PlinkMergeBeds(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
         for population, samples in GROUPS[self.group].iteritems():
-            yield PlinkMakeBed(population, samples, self.genome, self.targets)
+            yield PlinkMakeBed(population, samples, self.genome)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -616,10 +610,9 @@ class PlinkIndepPairwise(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
-        return PlinkMergeBeds(self.group, self.genome, self.targets)
+        return PlinkMergeBeds(self.group, self.genome)
 
     def output(self):
         extensions = ['in', 'out']
@@ -649,11 +642,10 @@ class PlinkPruneBed(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
-        return [PlinkMergeBeds(self.group, self.genome, self.targets),
-                PlinkIndepPairwise(IN_GROUP, self.genome, self.targets)]
+        return [PlinkMergeBeds(self.group, self.genome),
+                PlinkIndepPairwise(IN_GROUP, self.genome)]
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -675,11 +667,10 @@ class AdmixtureK(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
     k = luigi.IntParameter()
 
     def requires(self):
-        return PlinkPruneBed(self.group, self.genome, self.targets)
+        return PlinkPruneBed(self.group, self.genome)
 
     def output(self):
         extensions = ['P', 'Q', 'log']
@@ -712,11 +703,10 @@ class PlotAdmixtureK(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
     k = luigi.IntParameter()
 
     def requires(self):
-        return AdmixtureK(self.group, self.genome, self.targets, self.k)
+        return AdmixtureK(self.group, self.genome, self.k)
 
     def output(self):
         extensions = ['data', 'pdf']
@@ -753,12 +743,11 @@ class AdmixtureCV(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
         # run admixture or each population and each value of K
         for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield AdmixtureK(self.group, self.genome, self.targets, k)
+            yield AdmixtureK(self.group, self.genome, k)
 
     def output(self):
         return [luigi.LocalTarget("admix/{0}.CV.data".format(self.group)),
@@ -790,7 +779,7 @@ class AdmixtureCV(luigi.Task):
 
         # plot the admixture percentages for the 3 best fitting values of k
         for k, cv in bestfit:
-            yield PlotAdmixtureK(self.group, self.genome, self.targets, int(k))
+            yield PlotAdmixtureK(self.group, self.genome, int(k))
 
 
 class FlashPCA(luigi.Task):
@@ -799,10 +788,9 @@ class FlashPCA(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
-        return PlinkPruneBed(self.group, self.genome, self.targets)
+        return PlinkPruneBed(self.group, self.genome)
 
     def output(self):
         prefixes = ['eigenvalues', 'eigenvectors', 'pcs', 'pve']
@@ -829,12 +817,11 @@ class PlotFlashPCA(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
     pcs1 = luigi.IntParameter()
     pcs2 = luigi.IntParameter()
 
     def requires(self):
-        return FlashPCA(self.group, self.genome, self.targets)
+        return FlashPCA(self.group, self.genome)
 
     def output(self):
         return [luigi.LocalTarget("flashpca/pca_{0}.data".format(self.group)),
@@ -876,10 +863,9 @@ class PlotPhyloTree(luigi.Task):
     """
     group = luigi.Parameter()
     genome = luigi.Parameter()
-    targets = luigi.Parameter()
 
     def requires(self):
-        return PlinkPruneBed(self.group, self.genome, self.targets)
+        return PlinkPruneBed(self.group, self.genome)
 
     def output(self):
         return [luigi.LocalTarget("tree/{0}.data".format(self.group)),
@@ -929,18 +915,18 @@ class CustomGenomePipeline(luigi.Task):
     def requires(self):
 
         # make the SFS for dadi
-        yield SiteFrequencySpectrum('all-pops', GENOME, TARGETS)
+        yield SiteFrequencySpectrum('all-pops', GENOME)
 
         # run admixture
-        yield AdmixtureCV('no-outgroup', GENOME, TARGETS)
+        yield AdmixtureCV('no-outgroup', GENOME)
 
         # plot a phylogenetic tree
-        yield PlotPhyloTree('all-pops', GENOME, TARGETS)
+        yield PlotPhyloTree('all-pops', GENOME)
 
         # run flashpca for each population (for the top 6 components)
         for group in GROUPS:
             for pcs1, pcs2 in [(1,2), (3,4), (5,6)]:
-                yield PlotFlashPCA(group, GENOME, TARGETS, pcs1, pcs2)
+                yield PlotFlashPCA(group, GENOME, pcs1, pcs2)
 
 
 if __name__=='__main__':
