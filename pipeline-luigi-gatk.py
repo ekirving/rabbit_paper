@@ -381,7 +381,7 @@ class GatkHaplotypeCaller(luigi.Task):
         yield SamtoolsIndexBam(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("vcf/{0}.vcf".format(self.sample))
+        return luigi.LocalTarget("vcf/{0}.g.vcf".format(self.sample))
 
     def run(self):
 
