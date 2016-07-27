@@ -480,7 +480,7 @@ class GatkSelectVariants(luigi.Task):
                  "--restrictAllelesTo", "BIALLELIC"])
 
         # because SelectVariants doesn't handle having "*" in the ALT column we need to grep all those sites out
-        vcf = run_cmd(["grep -Pv '\t\*\t' vcf/" + str(self.population) + ".vcf"], returnout=True)
+        vcf = run_cmd(["grep -Pv '\t\*\t' vcf/" + str(self.population) + ".variant.vcf"], shell=True, returnout=True)
 
         # overwrite the vcf with the filtered data
         with self.output().open('w') as fout:
