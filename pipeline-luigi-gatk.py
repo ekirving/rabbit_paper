@@ -565,6 +565,7 @@ class PlinkMergeBeds(luigi.Task):
         # compose the merge command, because we are going to need it twice
         merge = ["plink",
                  "--make-bed",
+                 "--geno", "0.9",
                  "--bfile", bed_file1,
                  "--merge-list", "bed/{0}.list".format(self.group),
                  "--out", "bed/{0}".format(self.group)]
