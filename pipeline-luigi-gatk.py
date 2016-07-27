@@ -748,7 +748,7 @@ class AdmixtureCV(luigi.Task):
             yield PlotAdmixtureK(self.group, self.genome, k)
 
     def output(self):
-        return [luigi.LocalTarget("admix/{0}.CV.data".format(self.group)),
+        return [luigi.LocalTarget("admix/{0}.pruned.CV.data".format(self.group)),
                 luigi.LocalTarget("pdf/{0}.admix.CV.pdf".format(self.group)),]
 
     def run(self):
@@ -758,7 +758,10 @@ class AdmixtureCV(luigi.Task):
 
         # extract the K value and CV score
         # e.g. "CV error (K=1): 1.20340"
-        data = [tuple([eval(re.sub(r'[^\d.]+', "", val)) for val in cv.split(":")]) for cv in cvs.splitlines()]
+        data = [tuple([re.sub(r'[^\d.]+', "", val) for val in cv.split(":")]) for cv in cvs.splitlines()]
+
+        # get the three lowest CV scores
+        # bestfit = sorted(data, key=lambda x: x[1])[0:3]
 
         # write the scores to a data file
         with self.output()[0].open('w') as fout:
@@ -768,12 +771,11 @@ class AdmixtureCV(luigi.Task):
 
         # plot the CV values as a line graph
         run_cmd(["Rscript",
-                 "plot-admix-cv.R",
+                 "plot-line-graph.R",
                  self.output()[0].path,
-                 self.output()[1].path])
-
-        # get the three lowest CV scores
-        # bestfit = sorted(data, key=lambda x: x[1])[0:3]
+                 self.output()[1].path,
+                 "Ancestral populations (K)",
+                 "Cross-validation Error"])
 
 
 class sNMF_Ped2Geno(luigi.Task):
@@ -846,16 +848,19 @@ class sNMF_CE(luigi.Task):
             yield sNMF_K(self.group, self.genome, k)
 
     def output(self):
-        return [luigi.LocalTarget("snmf/{0}.CE.data".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.CE.pdf".format(self.group)),]
+        return [luigi.LocalTarget("snmf/{0}.pruned.CE.data".format(self.group)),
+                luigi.LocalTarget("pdf/{0}.sNMF.CE.pdf".format(self.group)),]
 
     def run(self):
 
+        # key phrase to look for in log files
+        keyphrase = "Cross-Entropy (masked data):"
+
         # use grep to find the lines containing the cross-entropy scores from all the log files
-        cvs = run_cmd(["grep 'Cross-Entropy (masked data):' snmf/{0}*.log".format(self.group)], returnout=True, shell=True)
+        ces = run_cmd(["grep '" + keyphrase + "' snmf/{0}*.log".format(self.group)], returnout=True, shell=True)
 
         # extract the K value and cross-entropy score
-        data = [tuple([eval(re.sub(r'[^\d.]+', "", val)) for val in cv.split(":")]) for cv in cvs.splitlines()]
+        data = [tuple([re.sub(r'[^\d.]+', "", val).strip('.') for val in ce.split(keyphrase)]) for ce in ces.splitlines()]
 
         # write the scores to a data file
         with self.output()[0].open('w') as fout:
@@ -865,9 +870,11 @@ class sNMF_CE(luigi.Task):
 
         # plot the CV values as a line graph
         run_cmd(["Rscript",
-                 "plot-admix-cv.R",
+                 "plot-line-graph.R",
                  self.output()[0].path,
-                 self.output()[1].path])
+                 self.output()[1].path,
+                 "Ancestral populations (K)",
+                 "Cross-Entropy (masked data)"])
 
 
 class FlashPCA(luigi.Task):
