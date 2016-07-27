@@ -407,10 +407,6 @@ class GatkGenotypeGVCFs(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        # reference must be indexed properly
-        yield PicardCreateSequenceDictionary(self.genome)
-        yield SamtoolsFaidx(self.genome)
-
         # samples must be individually called
         for sample in self.samples:
             yield GatkHaplotypeCaller(sample, self.genome)
@@ -467,12 +463,8 @@ class GatkSelectVariants(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        # reference must be indexed properly
-        yield PicardCreateSequenceDictionary(self.genome)
-        yield SamtoolsFaidx(self.genome)
-
         # population must have been joint called
-        yield GatkGenotypeGVCFs(self.population, self.samples, self.genome)
+        return GatkGenotypeGVCFs(self.population, self.samples, self.genome)
 
     def output(self):
         return luigi.LocalTarget("vcf/{0}.variant.vcf".format(self.population))
