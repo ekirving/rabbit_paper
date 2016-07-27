@@ -109,11 +109,9 @@ def run_cmd(cmd, returnout=True, shell=False, pwd='./'):
     if returnout:
         return stdout
     else:
-        logfile = ''
-        # send output to a log file
-        with open(logfile, 'w') as fout:
-            pass
-
+        # TODO send output to a log file
+        # with open('', 'w') as fout:
+        pass
 
 
 def unzip_file(gzip):
