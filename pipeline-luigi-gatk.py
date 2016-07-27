@@ -479,6 +479,12 @@ class GatkSelectVariants(luigi.Task):
                  "--selectTypeToInclude", "SNP",
                  "--restrictAllelesTo", "BIALLELIC"])
 
+        # because SelectVariants doesn't handle having "*" in the ALT column we need to grep all those sites out
+        vcf = run_cmd(["grep -Pv '\t\*\t' vcf/" + str(self.population) + ".vcf"], returnout=True)
+
+        # overwrite the vcf with the filtered data
+        with self.output().open('w') as fout:
+            fout.write(vcf)
 
 class PlinkMakeBed(luigi.Task):
     """
