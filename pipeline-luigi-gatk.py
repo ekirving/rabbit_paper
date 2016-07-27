@@ -1031,14 +1031,10 @@ class APE_PlotTree(luigi.Task):
                  self.output()[2].path])
 
 
-class CustomGenomePipeline(luigi.Task):
+class CustomGenomePipeline(luigi.WrapperTask):
     """
     Run all the samples through the pipeline
     """
-
-    def complete(self):
-        # always run the pipeline
-        return False
 
     def requires(self):
 
