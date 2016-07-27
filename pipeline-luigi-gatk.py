@@ -60,7 +60,7 @@ DEFAULT_COMPRESSION = 6
 MIN_GENOTYPE_QUAL = 30
 
 # the maximum number of ancestral populatons to run admiture for
-MAX_ANCESTRAL_K = 20
+MAX_ANCESTRAL_K = 10
 
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
@@ -747,7 +747,7 @@ class AdmixtureCV(luigi.Task):
     def requires(self):
         # run admixture or each population and each value of K
         for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield AdmixtureK(self.group, self.genome, k)
+            yield PlotAdmixtureK(self.group, self.genome, k)
 
     def output(self):
         return [luigi.LocalTarget("admix/{0}.CV.data".format(self.group)),
@@ -775,11 +775,7 @@ class AdmixtureCV(luigi.Task):
                  self.output()[1].path])
 
         # get the three lowest CV scores
-        bestfit = sorted(data, key=lambda x: x[1])[0:3]
-
-        # plot the admixture percentages for the 3 best fitting values of k
-        for k, cv in bestfit:
-            yield PlotAdmixtureK(self.group, self.genome, int(k))
+        # bestfit = sorted(data, key=lambda x: x[1])[0:3]
 
 
 class FlashPCA(luigi.Task):
