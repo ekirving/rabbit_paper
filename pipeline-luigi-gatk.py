@@ -835,6 +835,46 @@ class sNMF_K(luigi.Task):
             fout.write(log)
 
 
+class sNMF_PlotK(luigi.Task):
+    """
+    Use ggplot to plot the admixture Q stats
+    """
+    group = luigi.Parameter()
+    genome = luigi.Parameter()
+    k = luigi.IntParameter()
+
+    def requires(self):
+        return sNMF_K(self.group, self.genome, self.k)
+
+    def output(self):
+        extensions = ['data', 'pdf']
+        return [luigi.LocalTarget("snmf/{0}.pruned.{1}.data".format(self.group, self.k)),
+                luigi.LocalTarget("pdf/{0}.snmf.K.{1}.pdf".format(self.group, self.k))]
+
+    def run(self):
+
+        # use awk and paste to add population and sample names, needed for the plot
+        awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) + ".fam | " \
+              "paste - snmf/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
+
+        data = run_cmd([awk], returnout=True, shell=True)
+
+        # compose the header row
+        header = ["Pop{}".format(i) for i in range(1, int(self.k) + 1)]
+        header.insert(0, "Samples")
+
+        # save the labeled file
+        with self.output()[0].open('w') as fout:
+            fout.write("\t".join(header)+"\n")
+            fout.write(data)
+
+        # generate a PDF of the admixture stacked column chart
+        run_cmd(["Rscript",
+                 "plot-admix-k.R",
+                 self.output()[0].path,
+                 self.output()[1].path])
+
+
 class sNMF_CE(luigi.Task):
     """
     Run sNMF for the given population, determine the optimal K value, and plot the graphs
@@ -845,7 +885,7 @@ class sNMF_CE(luigi.Task):
     def requires(self):
         # run admixture or each population and each value of K
         for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield sNMF_K(self.group, self.genome, k)
+            yield sNMF_PlotK(self.group, self.genome, k)
 
     def output(self):
         return [luigi.LocalTarget("snmf/{0}.pruned.CE.data".format(self.group)),
@@ -955,7 +995,7 @@ class FlashPCAPlot(luigi.Task):
                          labeled])                                    # show point labels (0/1)
 
 
-class PhyloTreePlot(luigi.Task):
+class APE_PlotTree(luigi.Task):
     """
     Create a phylogenetic tree from a pruned BED file
     """
@@ -1022,7 +1062,7 @@ class CustomGenomePipeline(luigi.Task):
         yield sNMF_CE('no-outgroup', GENOME)
 
         # plot a phylogenetic tree
-        yield PhyloTreePlot('all-pops', GENOME)
+        yield APE_PlotTree('all-pops', GENOME)
 
         # run flashpca for each population (for the top 6 components)
         for group in GROUPS:
