@@ -878,7 +878,7 @@ class FlashPCA(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return PlinkPruneBed(self.group, self.genome)
+        return PlinkMergeBeds(self.group, self.genome)
 
     def output(self):
         prefixes = ['eigenvalues', 'eigenvectors', 'pcs', 'pve']
@@ -890,7 +890,7 @@ class FlashPCA(luigi.Task):
         os.chdir('./flashpca')
 
         run_cmd(["flashpca",
-                 "--bfile", "../bed/{0}.pruned".format(self.group),
+                 "--bfile", "../bed/{0}".format(self.group),
                  "--numthreads", MAX_CPU_CORES,
                  "--suffix", "_{0}.txt".format(self.group)],
                 pwd='../')
@@ -956,7 +956,7 @@ class PlotPhyloTree(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return PlinkPruneBed(self.group, self.genome)
+        return PlinkMergeBeds(self.group, self.genome)
 
     def output(self):
         return [luigi.LocalTarget("tree/{0}.data".format(self.group)),
@@ -969,7 +969,7 @@ class PlotPhyloTree(luigi.Task):
         # make the distance matrix
         run_cmd(["plink",
                  "--distance", "square", "1-ibs",
-                 "--bfile", "bed/{0}.pruned".format(self.group),
+                 "--bfile", "bed/{0}".format(self.group),
                  "--out", "tree/{0}".format(self.group)])
 
         # use awk to extract short versions of the pop and sample names
@@ -1008,10 +1008,10 @@ class CustomGenomePipeline(luigi.Task):
         # make the SFS for dadi
         yield SiteFrequencySpectrum('all-pops', GENOME)
 
-        # run admixture
+        # run admixture (on pruned data)
         yield AdmixtureCV('no-outgroup', GENOME)
 
-        # run sNMF
+        # run sNMF (on pruned data)
         yield sNMF_CE('no-outgroup', GENOME)
 
         # plot a phylogenetic tree
