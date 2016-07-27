@@ -390,14 +390,12 @@ class GatkHaplotypeCaller(luigi.Task):
                  "-R", "fasta/{0}.fa".format(self.genome),  # the indexed reference genome
                  "--genotyping_mode", "DISCOVERY",          # variant discovery
                  "--emitRefConfidence", "GVCF",             # reference model emitted with condensed non-variant blocks
-                 "-variant_index_type", "LINEAR",
-                 "-variant_index_parameter", "128000",
                  "--output_mode", "EMIT_ALL_SITES",         # produces calls at any callable site
                  "-L", TARGETS_LIST,                        # limit to the list of regions defined in the targets file
                  "-stand_emit_conf", "10",                  # min confidence threshold
                  "-stand_call_conf", MIN_GENOTYPE_QUAL,     # min call threshold
                  "-I", "bam/{0}.rmdup.bam".format(self.sample),
-                 "-o", "vcf/{0}.vcf".format(self.sample)])
+                 "-o", "vcf/{0}.g.vcf".format(self.sample)])
 
 
 class GatkGenotypeGVCFs(luigi.Task):
@@ -422,7 +420,7 @@ class GatkGenotypeGVCFs(luigi.Task):
 
     def run(self):
         # make a list of input files
-        vcf_files = sum([["-V", "vcf/{0}.vcf".format(sample)] for sample in self.samples], [])
+        vcf_files = sum([["-V", "vcf/{0}.g.vcf".format(sample)] for sample in self.samples], [])
 
         run_cmd(["java", "-Xmx8G", "-jar", GATK,
                  "-T", "GenotypeGVCFs",                     # use GenotypeGVCFs to jointly call variants
