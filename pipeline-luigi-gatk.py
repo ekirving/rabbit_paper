@@ -776,6 +776,100 @@ class AdmixtureCV(luigi.Task):
         # bestfit = sorted(data, key=lambda x: x[1])[0:3]
 
 
+class sNMF_Ped2Geno(luigi.Task):
+    """
+    Convert from BED to PED to Geno file type
+    """
+    group = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        return PlinkPruneBed(self.group, self.genome)
+
+    def output(self):
+        return luigi.LocalTarget("snmf/{0}.pruned.geno".format(self.group))
+
+    def run(self):
+
+        # convert from BED to PED (because sNMF can't handle BED files)
+        run_cmd(["plink",
+                 "--recode", "12",
+                 "--bfile", "bed/{0}.pruned".format(self.group),
+                 "--out", "ped/{0}.pruned".format(self.group)])
+
+        # convert from PED to GENO
+        run_cmd(["ped2geno",
+                 "ped/{0}.pruned.ped".format(self.group),
+                 "snmf/{0}.pruned.geno".format(self.group)])
+
+
+class sNMF_K(luigi.Task):
+    """
+    Run sNMF, with K ancestral populations, on the pruned BED files
+    """
+    group = luigi.Parameter()
+    genome = luigi.Parameter()
+    k = luigi.IntParameter()
+
+    def requires(self):
+        return sNMF_Ped2Geno(self.group, self.genome)
+
+    def output(self):
+        extensions = ['G', 'Q', 'log']
+        return [luigi.LocalTarget("snmf/{0}.pruned.{1}.{2}".format(self.group, self.k, ext)) for ext in extensions]
+
+    def run(self):
+
+        # run sNMF on the geno file, and compute the cross-entropy criterion
+        log = run_cmd(["sNMF",
+                       "-p", MAX_CPU_CORES,
+                       "-x", "snmf/{0}.pruned.geno".format(self.group),
+                       "-K", self.k,
+                       "-c"],
+                      returnout=True)
+
+        # save the log file
+        with self.output()[2].open('w') as fout:
+            fout.write(log)
+
+
+class sNMF_CE(luigi.Task):
+    """
+    Run sNMF for the given population, determine the optimal K value, and plot the graphs
+    """
+    group = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        # run admixture or each population and each value of K
+        for k in range(1, MAX_ANCESTRAL_K + 1):
+            yield sNMF_K(self.group, self.genome, k)
+
+    def output(self):
+        return [luigi.LocalTarget("snmf/{0}.CE.data".format(self.group)),
+                luigi.LocalTarget("pdf/{0}.CE.pdf".format(self.group)),]
+
+    def run(self):
+
+        # use grep to find the lines containing the cross-entropy scores from all the log files
+        cvs = run_cmd(["grep 'Cross-Entropy (masked data):' snmf/{0}*.log".format(self.group)], returnout=True, shell=True)
+
+        # extract the K value and cross-entropy score
+        data = [tuple([eval(re.sub(r'[^\d.]+', "", val)) for val in cv.split(":")]) for cv in cvs.splitlines()]
+
+        # write the scores to a data file
+        with self.output()[0].open('w') as fout:
+            fout.write("\t".join(["K", "Cross-Entropy"]) + "\n")
+            for row in data:
+                fout.write("\t".join(str(datum) for datum in row) + "\n")
+
+        # plot the CV values as a line graph
+        run_cmd(["Rscript",
+                 "plot-admix-cv.R",
+                 self.output()[0].path,
+                 self.output()[1].path])
+
+
 class FlashPCA(luigi.Task):
     """
     Run flashpca on the pruned BED files
@@ -916,6 +1010,9 @@ class CustomGenomePipeline(luigi.Task):
 
         # run admixture
         yield AdmixtureCV('no-outgroup', GENOME)
+
+        # run sNMF
+        yield sNMF_CE('no-outgroup', GENOME)
 
         # plot a phylogenetic tree
         yield PlotPhyloTree('all-pops', GENOME)
