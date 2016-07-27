@@ -709,7 +709,7 @@ class PlotAdmixtureK(luigi.Task):
     def output(self):
         extensions = ['data', 'pdf']
         return [luigi.LocalTarget("admix/{0}.pruned.{1}.data".format(self.group, self.k)),
-                luigi.LocalTarget("pdf/{0}.K.{1}.pdf".format(self.group, self.k))]
+                luigi.LocalTarget("pdf/{0}.admix.K.{1}.pdf".format(self.group, self.k))]
 
     def run(self):
 
@@ -749,7 +749,7 @@ class AdmixtureCV(luigi.Task):
 
     def output(self):
         return [luigi.LocalTarget("admix/{0}.CV.data".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.CV.pdf".format(self.group)),]
+                luigi.LocalTarget("pdf/{0}.admix.CV.pdf".format(self.group)),]
 
     def run(self):
 
