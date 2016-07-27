@@ -931,7 +931,7 @@ class PlotFlashPCA(luigi.Task):
                         "paste - flashpca/pcs_" + str(self.group) + ".txt"], returnout=True, shell=True)
 
         # save the labeled file
-        with self.output()[0].open('w') as fout:
+        with open("flashpca/pca_{0}.data".format(self.group), 'w') as fout:
             fout.write(data)
 
         # plot the first 6 components
@@ -947,12 +947,12 @@ class PlotFlashPCA(luigi.Task):
                 # generate a PDF of the PCA plot
                 run_cmd(["Rscript",
                          "plot-flashpca.R",
-                         self.output()[0].path,  # pca data
-                         self.output()[1].path,  # pve data
-                         pdf_path,               # pdf location
-                         pcs1,                   # component for x-axis
-                         pcs2,                   # component for y-axis
-                         labeled])               # show point labels (0/1)
+                         "flashpca/pca_{0}.data".format(self.group),  # pca data
+                         "flashpca/pve_{0}.txt".format(self.group),   # pve data
+                         pdf_path,                                    # pdf location
+                         pcs1,                                        # component for x-axis
+                         pcs2,                                        # component for y-axis
+                         labeled])                                    # show point labels (0/1)
 
 
 class PlotPhyloTree(luigi.Task):
