@@ -89,7 +89,7 @@ def extract_variant_sites(population, samples, variants):
                 logging.debug('{}\t{}\tInDel\t{}/{}'.format(population, site, ref, alt))
 
                 # remember where we found the indel
-                indels.append(site)
+                indels.append(site + max(len(ref), len(alt)))
                 continue
 
             if site not in variants:
@@ -132,10 +132,10 @@ def extract_variant_sites(population, samples, variants):
 
     # filter sites within +/- 10 bases of each idels
     for indel in indels:
-        chrom, pos = indel
+        chrom, pos, len = indel
 
         # filter any site within 10 bases
-        sites = [(chrom, pos + offset) for offset in range(-10, 11)]
+        sites = [(chrom, pos + offset) for offset in range(-(len + 10), (len + 11))]
 
         for site in sites:
             # remove the current population, but leave the others
