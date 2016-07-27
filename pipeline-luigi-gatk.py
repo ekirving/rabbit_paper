@@ -695,7 +695,7 @@ class AdmixtureK(luigi.Task):
             fout.write(log)
 
 
-class PlotAdmixtureK(luigi.Task):
+class AdmixturePlotK(luigi.Task):
     """
     Use ggplot to plot the admixture Q stats
     """
@@ -745,7 +745,7 @@ class AdmixtureCV(luigi.Task):
     def requires(self):
         # run admixture or each population and each value of K
         for k in range(1, MAX_ANCESTRAL_K + 1):
-            yield PlotAdmixtureK(self.group, self.genome, k)
+            yield AdmixturePlotK(self.group, self.genome, k)
 
     def output(self):
         return [luigi.LocalTarget("admix/{0}.pruned.CV.data".format(self.group)),
@@ -906,7 +906,7 @@ class FlashPCA(luigi.Task):
         os.chdir('..')
 
 
-class PlotFlashPCA(luigi.Task):
+class FlashPCAPlot(luigi.Task):
     """
     Use ggplot to plot the PCA
     """
@@ -955,7 +955,7 @@ class PlotFlashPCA(luigi.Task):
                          labeled])                                    # show point labels (0/1)
 
 
-class PlotPhyloTree(luigi.Task):
+class PhyloTreePlot(luigi.Task):
     """
     Create a phylogenetic tree from a pruned BED file
     """
@@ -1022,11 +1022,11 @@ class CustomGenomePipeline(luigi.Task):
         yield sNMF_CE('no-outgroup', GENOME)
 
         # plot a phylogenetic tree
-        yield PlotPhyloTree('all-pops', GENOME)
+        yield PhyloTreePlot('all-pops', GENOME)
 
         # run flashpca for each population (for the top 6 components)
         for group in GROUPS:
-            yield PlotFlashPCA(group, GENOME)
+            yield FlashPCAPlot(group, GENOME)
 
 
 if __name__=='__main__':
