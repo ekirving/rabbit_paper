@@ -132,10 +132,10 @@ def extract_variant_sites(population, samples, variants):
 
     # filter sites within +/- 10 bases of each idels
     for indel in indels:
-        chrom, pos, len = indel
+        chrom, pos, length = indel
 
         # filter any site within 10 bases
-        sites = [(chrom, pos + offset) for offset in range(-(len + 10), (len + 11))]
+        sites = [(chrom, pos + offset) for offset in range(-(length + 10), (length + 11))]
 
         for site in sites:
             # remove the current population, but leave the others
