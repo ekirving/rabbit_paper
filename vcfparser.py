@@ -22,6 +22,9 @@ INFO = 7
 FORMAT = 8
 GENOTYPE = 9
 
+# size of buffer around indels in which to drop sites
+INDEL_BUFFER = 10
+
 def extract_variant_sites(population, samples, variants):
 
     # is this the outgroup population (because we don't quality filer the outgroup)
@@ -138,7 +141,7 @@ def extract_variant_sites(population, samples, variants):
         chrom, pos, size = indel
 
         # filter any site within 10 bases
-        sites = [(chrom, pos + offset) for offset in range(-(size + 10), (size + 11))]
+        sites = [(chrom, pos + offset) for offset in range(-INDEL_BUFFER, (size + INDEL_BUFFER + 1))]
 
         for site in sites:
             # remove the current population, but leave the others
@@ -166,10 +169,10 @@ def find_flanking_bases(variants):
             flank2 = (locus[CHROM], int(locus[POS]) + 1) # left flank
 
             ref = locus[REF]
-            alt = locus[ALT].replace('<NON_REF>', ref).replace('*', ref)
+            alt = locus[ALT].replace('<NON_REF>', ref)
 
             # skip indels and pollyallelic sites
-            if len(ref) > 1 or len(alt) > 1:
+            if len(ref) > 1 or len(alt) > 1 or alt is "*":
                 continue
 
             if flank1 in variants:
