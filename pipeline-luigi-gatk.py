@@ -206,7 +206,7 @@ class SamplePairedEndFastq(luigi.Task):
         # use the NCBI SRA toolkit to fetch the fastq files
         run_cmd(["fastq-dump",
                  "--gzip",               # output gzipped files
-                 "--split-files",        # split paired end files
+                 "--split-3",            # split into two paired end fastq files + one unpaired fastq
                  "--outdir", "./fastq",  # output directory
                  self.sample])
 
@@ -295,29 +295,37 @@ class BwaIndexBwtsw(luigi.Task):
 
 class BwaMem(luigi.Task):
     """
-    Align the fastq files to the reference genome
+    Align the paired end fastq files to the reference genome
     """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
+    paired = luigi.BoolParameter()
 
     def requires(self):
         return [SamplePairedEndFastq(self.sample),
                 BwaIndexBwtsw(self.genome)]
 
     def output(self):
-        return luigi.LocalTarget("sam/{0}.sam".format(self.sample))
+        suffix = "paired" if self.paired else "single"
+        return luigi.LocalTarget("sam/{0}.{1}.sam".format(self.sample, suffix))
 
     def run(self):
+
         read_group = "@RG\\tID:{sample}\\tSM:{sample}".format(sample=self.sample)
+
+        if self.paired:
+            fastq = ["fastq/{0}_1.fastq.gz".format(self.sample),  # pair 1
+                     "fastq/{0}_2.fastq.gz".format(self.sample)]  # pair 2
+        else :
+            fastq = ["fastq/{0}.fastq.gz".format(self.sample)]    # unapired
 
         # perform the alignment
         sam = run_cmd(["bwa",
-                       "mem",                                        # align using the mem algorithm
-                       "-t", MAX_CPU_CORES,                          # number of cores
-                       "-R", read_group,                             # read group metadata
-                       "fasta/{0}.fa".format(self.genome),           # reference genome
-                       "fastq/{0}_1.fastq.gz".format(self.sample),   # pair 1
-                       "fastq/{0}_2.fastq.gz".format(self.sample)],  # pair 2
+                       "mem",                               # align using the mem algorithm
+                       "-t", MAX_CPU_CORES,                 # number of cores
+                       "-R", read_group,                    # read group metadata
+                       "fasta/{0}.fa".format(self.genome),  # reference genome
+                       + fastq],                            # input files
                       returnout=True)
 
         # save the SAM file
@@ -331,9 +339,43 @@ class SamtoolsSortBam(luigi.Task):
     """
     sample = luigi.Parameter()
     genome = luigi.Parameter()
+    paired = luigi.BoolParameter()
 
     def requires(self):
-        return BwaMem(self.sample, self.genome)
+        return BwaMem(self.sample, self.genome, self.paired)
+
+    def output(self):
+        suffix = "paired" if self.paired else "single"
+        return luigi.LocalTarget("bam/{0}.{1}.bam".format(self.sample, suffix))
+
+    def run(self):
+        suffix = "paired" if self.paired else "single"
+
+        # perform the SAM -> BAM conversion and sorting
+        bam = run_cmd(["samtools1.3",
+                       "sort",                    # sort the reads
+                       "-l", DEFAULT_COMPRESSION, # level of compression
+                       "-@", MAX_CPU_CORES,       # number of cores
+                       "-O", "bam",               # output a BAM file
+                       "sam/{0}.{1}.sam".format(self.sample, suffix)],
+                      returnout=True)
+
+        # save the BAM file
+        with self.output().open('w') as fout:
+            fout.write(bam)
+
+
+class SamtoolsMergeBam(luigi.Task):
+    """
+    Merge the two SAM files from the paired and unpaired reads.
+    """
+    sample = luigi.Parameter()
+    genome = luigi.Parameter()
+
+    def requires(self):
+        # we require both the paired an unpaired BAM files
+        return [SamtoolsSortBam(self.sample, self.genome, True),
+                SamtoolsSortBam(self.sample, self.genome, False)]
 
     def output(self):
         return luigi.LocalTarget("bam/{0}.bam".format(self.sample))
@@ -341,16 +383,13 @@ class SamtoolsSortBam(luigi.Task):
     def run(self):
         # perform the SAM -> BAM conversion and sorting
         bam = run_cmd(["samtools1.3",
-                       "sort",                              # sort the reads
-                       "-l", DEFAULT_COMPRESSION,           # level of compression
-                       "-@", MAX_CPU_CORES,                 # number of cores
-                       "-O", "bam",                         # output a BAM file
-                       "sam/{0}.sam".format(self.sample)],  # input a SAM file
+                       "merge",                                   # sort the reads
+                       "-c",                                      # combine the @RG headers
+                       "-@", MAX_CPU_CORES,                       # number of cores
+                       "bam/{0}.bam".format(self.sample),         # output file
+                       "bam/{0}.paired.bam".format(self.sample),
+                       "bam/{0}.single.bam".format(self.sample)],
                       returnout=True)
-
-        # save the BAM file
-        with self.output().open('w') as fout:
-            fout.write(bam)
 
 
 class PicardMarkDuplicates(luigi.Task):
@@ -361,7 +400,7 @@ class PicardMarkDuplicates(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return SamtoolsSortBam(self.sample, self.genome)
+        return SamtoolsMergeBam(self.sample, self.genome)
 
     def output(self):
         return luigi.LocalTarget("bam/{0}.rmdup.bam".format(self.sample))
