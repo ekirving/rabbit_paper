@@ -565,7 +565,6 @@ class PlinkMergeBeds(luigi.Task):
         # compose the merge command, because we are going to need it twice
         merge = ["plink",
                  "--make-bed",
-                 "--geno", "0.9",
                  "--bfile", bed_file1,
                  "--merge-list", "bed/{0}.list".format(self.group),
                  "--out", "bed/{0}".format(self.group)]
@@ -587,8 +586,11 @@ class PlinkMergeBeds(luigi.Task):
                              "--bfile", "bed/{0}.{1}".format(population, suffix),
                              "--out", "bed/{0}.{1}".format(population, suffix)])
 
+                # FIXME...
+                raise Exception("Stop here: {}".format(" ".join(merge)))
+
                 # reattempt the merge
-                run_cmd(merge)
+                # run_cmd(merge)
 
             else:
                 raise Exception(e)
