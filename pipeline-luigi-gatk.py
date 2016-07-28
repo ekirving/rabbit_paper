@@ -50,9 +50,6 @@ GROUPS['no-out-ib1'] = POPULATIONS.copy()
 del GROUPS['no-out-ib1']['OUT']
 del GROUPS['no-out-ib1']['WLD-IB1']
 
-# the population group that represents the core of the analysis, used for calculating the SNP list for analysis
-IN_GROUP = 'no-out-ib1'
-
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
 
@@ -638,8 +635,7 @@ class PlinkPruneBed(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return [PlinkMergeBeds(self.group, self.genome),
-                PlinkIndepPairwise(IN_GROUP, self.genome)]
+        return PlinkIndepPairwise(self.group, self.genome)
 
     def output(self):
         extensions = ['bed', 'bim', 'fam']
@@ -647,10 +643,10 @@ class PlinkPruneBed(luigi.Task):
 
     def run(self):
 
-        # apply the prune list (NB. list is calcualted from the IN_GROUP rather than the current group)
+        # apply the prune list
         run_cmd(["plink",
                  "--make-bed",
-                 "--extract", "bed/{0}.prune.in".format(IN_GROUP),
+                 "--extract", "bed/{0}.prune.in".format(self.group),
                  "--bfile", "bed/{0}".format(self.group),
                  "--out", "bed/{0}.pruned".format(self.group)])
 
