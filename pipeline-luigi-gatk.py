@@ -35,6 +35,48 @@ POPULATIONS = {
     'WLD-IB2': ['SRR827759', 'SRR827760', 'SRR827766', 'SRR827767', 'SRR827768', 'SRR827769']
 }
 
+# accession codes and sample IDs
+SAMPLES = {
+
+    # Wild hare, outgroup
+    'SRR824842': 'LT2012',  # Lepus timidus
+
+    # domestic population, w/ accession codes and sample ID
+    'SRR997320': 'FA801',   # Champagne d'argent
+    'SRR997321': 'AC100',   # Angora
+    'SRR997322': 'REX12',   # Rex
+    'SRR997323': 'FL920',   # French lop
+    'SRR997324': 'FG4',     # Flemish giant
+    'SRR997325': 'BH23',    # Belgian hare
+    'SRR997326': 'FG3',     # Flemish giant
+    'SRR997327': 'A93015',  # Angora
+
+    # wild French population, w/ accession codes and sample ID
+    'SRR997303': 'Her65',   # Herauld
+    'SRR997304': 'Fos2',    # Fos-su-Mer
+    'SRR997305': 'Vau73',   # Vaucluse
+    'SRR997316': 'Lan8',    # Lancon
+    'SRR997317': 'Fos6',    # Fos-su-Mer
+    'SRR997318': 'Lan7',    # Lancon
+    'SRR997319': 'Avey36',  # Aveyron
+
+    # wild iberian 1, Oryctolagus cuniculus algirus
+    'SRR827758': 'Hue52',   # Huelva
+    'SRR827761': 'Pan2',    # Pancas
+    'SRR827762': 'Ped16',   # Sevilla
+    'SRR827763': 'Ped8',    # Sevilla
+    'SRR827764': 'Pfr11',   # Sevilla
+    'SRR827765': 'Pfr15',   # Sevilla
+
+    # wild iberian 2, Oryctolagus cuniculus cuniculus
+    'SRR827759': 'Lle10',   # Lleida
+    'SRR827760': 'Lle11',   # Lleida
+    'SRR827766': 'Zrg13',   # Zaragoza
+    'SRR827767': 'Zrg2',    # Zaragoza
+    'SRR827768': 'Zrg3',    # Zaragoza
+    'SRR827769': 'Zrg7',    # Zaragoza
+}
+
 # setup some population groups
 GROUPS = dict()
 
