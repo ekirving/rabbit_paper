@@ -544,7 +544,6 @@ class PlinkMergeBeds(luigi.Task):
 
     def run(self):
 
-        # TODO should this use the group name instead?
         # generate a unique suffix for temporary files
         suffix = 'tmp' + str(random.getrandbits(100))
 
@@ -562,10 +561,10 @@ class PlinkMergeBeds(luigi.Task):
         with open("bed/{0}.list".format(self.group), 'w') as fout:
             fout.write("\n".join(bed_files))
 
-        # compose the merge command, because we are going to need it twice
+        # compose the merge command, because we are going to need it twice (retains ~8.6k variants)
         merge = ["plink",
                  "--make-bed",
-                 "-geno", '0.1',        # remove all sites with more than 10% of genotypes missing (i.e. force 90%)
+                 "--geno", '0.1',       # remove all sites with more than 10% of genotypes missing (i.e. force 90% geno)
                  "--bfile", bed_file1,
                  "--merge-list", "bed/{0}.list".format(self.group),
                  "--out", "bed/{0}".format(self.group)]
