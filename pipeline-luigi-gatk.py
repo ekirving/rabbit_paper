@@ -324,8 +324,8 @@ class BwaMem(luigi.Task):
                        "mem",                               # align using the mem algorithm
                        "-t", MAX_CPU_CORES,                 # number of cores
                        "-R", read_group,                    # read group metadata
-                       "fasta/{0}.fa".format(self.genome),  # reference genome
-                       + fastq],                            # input files
+                       "fasta/{0}.fa".format(self.genome)]  # reference genome
+                       + fastq,                             # input files
                       returnout=True)
 
         # save the SAM file
