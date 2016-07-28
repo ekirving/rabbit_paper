@@ -89,7 +89,7 @@ def extract_variant_sites(population, samples, variants):
                 logging.debug('{}\t{}\tInDel\t{}/{}'.format(population, site, ref, alt))
 
                 # remember where we found the indel
-                indels.append(site + max(len(ref), len(alt)))
+                indels.append(site + (max(len(ref), len(alt))))
                 continue
 
             if site not in variants:
