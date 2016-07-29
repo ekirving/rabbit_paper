@@ -136,6 +136,7 @@ class DadiOptimizeLogParams(luigi.Task):
 
         # save the output
         with self.output()[0].open('w') as fout:
+            fout.write('Starting params: {0}\n'.format(p0))
             fout.write('Maximum log composite likelihood: {0}\n'.format(ll_model))
             fout.write('Best-fit parameters: {0}\n'.format(popt))
             fout.write('Optimal value of theta: {0}\n'.format(theta))
