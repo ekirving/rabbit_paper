@@ -1,5 +1,10 @@
 #!/usr/bin/python
+
+# load matplotlib before dadi so we can disable the screen
+import matplotlib; matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import luigi, dadi, numpy, pylab
+
 from pipeline_gatk import *
 from pipeline_utils import *
 
@@ -131,13 +136,11 @@ class DadiOptimizeLogParams(luigi.Task):
             fout.write('Best-fit parameters: {0}\n'.format(popt))
             fout.write('Optimal value of theta: {0}\n'.format(theta))
 
-        fig = pylab.figure(1)
-
-        # plot the SFS
+        # save the figure as a PDF
+        fig = plt.figure(1)
         dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=3, fig_num=1)
-
-        # save the PDF
         fig.savefig(self.output()[1].path)
+        plt.close(fig)
 
 
 class CustomDadiPipeline(luigi.WrapperTask):
