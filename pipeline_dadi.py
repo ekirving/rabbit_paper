@@ -4,6 +4,7 @@ import luigi, dadi, numpy
 from pipeline_gatk import *
 from pipeline_utils import *
 
+
 class SiteFrequencySpectrum(luigi.Task):
     """
     Produce the site frequency spectrum, based on genotype calls from GATK GenotypeGVCFs

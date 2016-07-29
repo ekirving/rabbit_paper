@@ -6,9 +6,9 @@ from pipeline_dadi import *
 from pipeline_utils import *
 
 
-class SamplePairedEndFastq(luigi.Task):
+class SraToolsFastqDump(luigi.Task):
     """
-    Fetches the two paired-end FASTQ files for a given sample ID
+    Fetches the paired-end and single end FASTQ files for a given sample ID, using SRA Tools
     """
     sample = luigi.Parameter()
 
@@ -25,9 +25,9 @@ class SamplePairedEndFastq(luigi.Task):
                  self.sample])
 
 
-class ReferenceGenomeFasta(luigi.Task):
+class EnsemblReferenceFasta(luigi.Task):
     """
-    Fetches the reference genome
+    Fetches the reference genome FASTA file from Ensembl
     """
     genome = luigi.Parameter()
 
@@ -56,13 +56,13 @@ class SamtoolsFaidx(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return ReferenceGenomeFasta(self.genome)
+        return EnsemblReferenceFasta(self.genome)
 
     def output(self):
         return luigi.LocalTarget("fasta/{0}.fa.fai".format(self.genome))
 
     def run(self):
-        run_cmd(["samtools1.3",
+        run_cmd([SAMTOOLS,
                  "faidx",                              # index needed for CRAM files
                  "fasta/{0}.fa".format(self.genome)])  # input file
 
@@ -74,7 +74,7 @@ class PicardCreateSequenceDictionary(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return ReferenceGenomeFasta(self.genome)
+        return EnsemblReferenceFasta(self.genome)
 
     def output(self):
         return luigi.LocalTarget("fasta/{0}.dict".format(self.genome))
@@ -93,7 +93,7 @@ class BwaIndexBwtsw(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        return ReferenceGenomeFasta(self.genome)
+        return EnsemblReferenceFasta(self.genome)
 
     def output(self):
         extensions = ['amb', 'ann', 'bwt', 'pac', 'sa']
@@ -116,7 +116,7 @@ class BwaMem(luigi.Task):
     paired = luigi.BoolParameter()
 
     def requires(self):
-        return [SamplePairedEndFastq(self.sample),
+        return [SraToolsFastqDump(self.sample),
                 BwaIndexBwtsw(self.genome)]
 
     def output(self):
@@ -166,7 +166,7 @@ class SamtoolsSortBam(luigi.Task):
         suffix = "paired" if self.paired else "single"
 
         # perform the SAM -> BAM conversion and sorting
-        bam = run_cmd(["samtools1.3",
+        bam = run_cmd([SAMTOOLS,
                        "sort",                    # sort the reads
                        "-l", DEFAULT_COMPRESSION, # level of compression
                        "-@", MAX_CPU_CORES,       # number of cores
@@ -196,7 +196,7 @@ class SamtoolsMergeBam(luigi.Task):
 
     def run(self):
         # perform the SAM -> BAM conversion and sorting
-        bam = run_cmd(["samtools1.3",
+        bam = run_cmd([SAMTOOLS,
                        "merge",                                   # sort the reads
                        "-c",                                      # combine the @RG headers
                        "-@", MAX_CPU_CORES,                       # number of cores
@@ -251,7 +251,7 @@ class SamtoolsIndexBam(luigi.Task):
 
     def run(self):
 
-        run_cmd(["samtools1.3",
+        run_cmd([SAMTOOLS,
                  "index",
                  "-b",                                      # create a BAI index
                  "bam/{0}.rmdup.bam".format(self.sample)])  # file to index

@@ -91,6 +91,9 @@ DEFAULT_COMPRESSION = 6
 # the minimum phred scaled genotype quality (30 = 99.9%)
 MIN_GENOTYPE_QUAL = 30
 
+# the minimum depth of coverage for a site
+MIN_COVERAGE_DEPTH = 8
+
 # the maximum number of ancestral populatons to run admiture for
 MAX_ANCESTRAL_K = 10
 
@@ -100,12 +103,10 @@ MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 # size of buffer around indels in which to drop sites
 INDEL_BUFFER = 10
 
-# location of java jar files
+# location of software tools
 PICARD = "/usr/local/picard-tools-2.5.0/picard.jar"
 GATK = "/usr/local/GenomeAnalysisTK-3.6/GenomeAnalysisTK.jar"
-
-# the minimum depth of coverage for a site
-MIN_COVERAGE_DEPTH = 8
+SAMTOOLS = "/usr/local/bin/samtools1.3"
 
 # VCF column headers
 CHROM = 0
