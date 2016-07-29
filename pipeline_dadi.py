@@ -78,7 +78,7 @@ class DadiOptimizeLogParams(luigi.Task):
     def output(self):
         # TODO make model a param
         return [luigi.LocalTarget("fsdata/{0}.{1}.opt".format("split_mig", self.n)),
-                luigi.LocalTarget("pdf/{0}_{1}_{3}.dadi.fs.pdf".format(self.pop1, self.pop2, self.n))]
+                luigi.LocalTarget("pdf/{0}_{1}_{2}.dadi.fs.pdf".format(self.pop1, self.pop2, self.n))]
 
     def run(self):
 
