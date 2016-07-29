@@ -109,7 +109,7 @@ GATK = "/usr/local/GenomeAnalysisTK-3.6/GenomeAnalysisTK.jar"
 SAMTOOLS = "/usr/local/bin/samtools1.3"
 
 # how many iterations to use to optimise params
-DADI_MAX_ITER = 100
+DADI_MAX_ITER = 1000
 
 # project down population sizes to 90%
 DADI_PROJECT = 0.9

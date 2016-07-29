@@ -114,7 +114,7 @@ class DadiOptimizeLogParams(luigi.Task):
 
         # Perturb our parameters before optimization. This does so by taking each
         # parameter a up to a factor of two up or down.
-        p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound, lower_bound=lower_bound)
+        # p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound, lower_bound=lower_bound)
 
         # Do the optimization...
         popt = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
