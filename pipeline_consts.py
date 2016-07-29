@@ -108,6 +108,12 @@ PICARD = "/usr/local/picard-tools-2.5.0/picard.jar"
 GATK = "/usr/local/GenomeAnalysisTK-3.6/GenomeAnalysisTK.jar"
 SAMTOOLS = "/usr/local/bin/samtools1.3"
 
+# how many iterations to use to optimise params
+DADI_MAX_ITER = 100
+
+# project down population sizes to 90%
+DADI_PROJECT = 0.9
+
 # VCF column headers
 CHROM = 0
 POS = 1

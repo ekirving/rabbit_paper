@@ -908,9 +908,6 @@ class CustomGenomePipeline(luigi.WrapperTask):
 
     def requires(self):
 
-        # make the SFS for dadi
-        yield SiteFrequencySpectrum('all-pops', GENOME)
-
         # run admixture (on pruned data)
         yield AdmixtureCV('no-outgroup', GENOME)
 
