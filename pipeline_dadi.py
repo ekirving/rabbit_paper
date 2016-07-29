@@ -132,6 +132,7 @@ class DadiOptimizeLogParams(luigi.Task):
             fout.write('Optimal value of theta: {0}\n'.format(theta))
 
 
+
 class CustomDadiPipeline(luigi.WrapperTask):
     """
     Run the dadi models
@@ -139,5 +140,5 @@ class CustomDadiPipeline(luigi.WrapperTask):
 
     def requires(self):
 
-        for n in range(0, 11):
+        for n in range(0, 10):
             yield DadiOptimizeLogParams('DOM', 'WLD-FRE', n)
