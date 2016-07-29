@@ -3,8 +3,9 @@
 # load matplotlib before dadi so we can disable the screen
 import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import luigi, dadi, numpy, pylab
+import luigi, dadi, numpy, pylab, random
 
+# import the custom pipelines
 from pipeline_gatk import *
 from pipeline_utils import *
 
@@ -90,6 +91,7 @@ class DadiOptimizeLogParams(luigi.Task):
         # load the frequency spectrum
         fs = dadi.Spectrum.from_file("fsdata/{0}_{1}.fs".format(self.pop1, self.pop2))
 
+        # TODO what effect do these have
         # These are the grid point settings will use for extrapolation.
         pts_l = [10, 50, 60]
 
@@ -101,9 +103,11 @@ class DadiOptimizeLogParams(luigi.Task):
         upper_bound = [100, 100, 3, 10]
         lower_bound = [1e-4, 1e-4, 0, 0]
 
-        # TODO randomise these starting values
         # This is our initial guess for the parameters, which is somewhat arbitrary.
-        p0 = [2, 0.1, 0.2, 0.2]
+        # p0 = [2, 0.1, 0.2, 0.2]
+
+        # randomly generated starting values within the bounding ranges
+        p0 = [random.uniform(lower_bound[i], upper_bound[i]) for i in range(0, len(upper_bound))]
 
         # Make the extrapolating version of our demographic model function.
         func_ex = dadi.Numerics.make_extrap_log_func(func)
