@@ -1,6 +1,5 @@
 #!/usr/bin/python
-import luigi, dadi, numpy
-
+import luigi, dadi, numpy, pylab
 from pipeline_gatk import *
 from pipeline_utils import *
 
@@ -78,7 +77,8 @@ class DadiOptimizeLogParams(luigi.Task):
 
     def output(self):
         # TODO make model a param
-        return luigi.LocalTarget("fsdata/{0}.{1}.opt".format("split_mig", self.n))
+        return [luigi.LocalTarget("fsdata/{0}.{1}.opt".format("split_mig", self.n)),
+                luigi.LocalTarget("pdf/{0}_{1}_{3}.dadi.fs.pdf".format(self.pop1, self.pop2, self.n))]
 
     def run(self):
 
@@ -126,11 +126,18 @@ class DadiOptimizeLogParams(luigi.Task):
         theta = dadi.Inference.optimal_sfs_scaling(model, fs)
 
         # save the output
-        with self.output().open('w') as fout:
+        with self.output()[0].open('w') as fout:
             fout.write('Maximum log composite likelihood: {0}\n'.format(ll_model))
             fout.write('Best-fit parameters: {0}\n'.format(popt))
             fout.write('Optimal value of theta: {0}\n'.format(theta))
 
+        fig = pylab.figure(1)
+
+        # plot the SFS
+        dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=3, fig_num=1)
+
+        # save the PDF
+        fig.savefig(self.output()[1].path)
 
 
 class CustomDadiPipeline(luigi.WrapperTask):
