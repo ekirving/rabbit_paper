@@ -2,10 +2,8 @@
 import luigi, os, os.path, glob, random, re, shutil
 
 # import my custom modules
-from vcfparser import *
-from dadimodels import *
-from utilities import *
-from constants import *
+from pipeline_dadi import *
+from pipeline_utils import *
 
 
 class SamplePairedEndFastq(luigi.Task):
@@ -319,33 +317,6 @@ class GatkGenotypeGVCFs(luigi.Task):
                  "-R", "fasta/{0}.fa".format(self.genome),  # the indexed reference genome
                  "-o", "vcf/{0}.vcf".format(self.population)]
                 + vcf_files)
-
-
-class SiteFrequencySpectrum(luigi.Task):
-    """
-    Produce the site frequency spectrum, based on genotype calls from GATK GenotypeGVCFs
-    """
-    group = luigi.Parameter()
-    genome = luigi.Parameter()
-
-    def requires(self):
-        for population, samples in GROUPS[self.group].iteritems():
-            yield GatkGenotypeGVCFs(population, samples, self.genome)
-
-    def output(self):
-        return luigi.LocalTarget("fsdata/{0}.data".format(self.genome))
-
-    def run(self):
-
-        # log everything to file
-        logging.basicConfig(filename="fsdata/{0}.log".format(self.genome), level=logging.DEBUG)
-
-        # generate the frequency spectrum
-        fsdata = generate_frequency_spectrum(GROUPS[self.group])
-
-        # save the fsdata file
-        with self.output().open('w') as fout:
-            fout.write(fsdata)
 
 
 class GatkSelectVariants(luigi.Task):

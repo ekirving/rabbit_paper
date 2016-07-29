@@ -97,6 +97,24 @@ MAX_ANCESTRAL_K = 10
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
 
+# size of buffer around indels in which to drop sites
+INDEL_BUFFER = 10
+
 # location of java jar files
 PICARD = "/usr/local/picard-tools-2.5.0/picard.jar"
 GATK = "/usr/local/GenomeAnalysisTK-3.6/GenomeAnalysisTK.jar"
+
+# the minimum depth of coverage for a site
+MIN_COVERAGE_DEPTH = 8
+
+# VCF column headers
+CHROM = 0
+POS = 1
+ID = 2
+REF = 3
+ALT = 4
+QUAL = 5
+FILTER = 6
+INFO = 7
+FORMAT = 8
+GENOTYPE = 9
