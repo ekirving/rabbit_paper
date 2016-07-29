@@ -103,18 +103,18 @@ class DadiOptimizeLogParams(luigi.Task):
         upper_bound = [100, 100, 3, 10]
         lower_bound = [1e-4, 1e-4, 0, 0]
 
-        # This is our initial guess for the parameters, which is somewhat arbitrary.
-        # p0 = [2, 0.1, 0.2, 0.2]
-
         # randomly generated starting values within the bounding ranges
-        p0 = [random.uniform(lower_bound[i], upper_bound[i]) for i in range(0, len(upper_bound))]
+        # p0 = [random.uniform(lower_bound[i], upper_bound[i]) for i in range(0, len(upper_bound))]
 
-        # Make the extrapolating version of our demographic model function.
-        func_ex = dadi.Numerics.make_extrap_log_func(func)
+        # This is our initial guess for the parameters, which is somewhat arbitrary.
+        p0 = [2, 0.1, 0.2, 0.2]
 
         # Perturb our parameters before optimization. This does so by taking each
         # parameter a up to a factor of two up or down.
-        # p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound, lower_bound=lower_bound)
+        p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound, lower_bound=lower_bound)
+
+        # Make the extrapolating version of our demographic model function.
+        func_ex = dadi.Numerics.make_extrap_log_func(func)
 
         # Do the optimization...
         popt = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
