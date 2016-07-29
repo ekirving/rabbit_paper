@@ -76,15 +76,20 @@ print('Maximum log composite likelihood: {0}'.format(ll_model))
 theta = dadi.Inference.optimal_sfs_scaling(model, data)
 print('Optimal value of theta: {0}'.format(theta))
 
+
 # Plot a comparison of the resulting fs with the data.
 import pylab
+
+# Turn interactive plotting off
+pylab.ioff()
+
 fig = pylab.figure(1)
 
 dadi.Plotting.plot_2d_comp_multinom(model, data, vmin=1, resid_range=3, fig_num=1)
 
-# pylab.show()
-
 fig.savefig('test.pdf')
+
+pylab.close(fig)
 
 
 # # ----------------------------------------------------------------------------------------------------------------------
