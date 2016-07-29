@@ -106,8 +106,14 @@ class DadiOptimizeLogParams(luigi.Task):
         # randomly generated starting values within the bounding ranges
         # p0 = [random.uniform(lower_bound[i], upper_bound[i]) for i in range(0, len(upper_bound))]
 
+        # nu1: Size of population 1 after split.
+        # nu2: Size of population 2 after split.
+        # T: Time in the past of split (in units of 2*Na generations)
+        # m: Migration rate between populations (2*Na*m)
+
         # This is our initial guess for the parameters, which is somewhat arbitrary.
-        p0 = [2, 0.1, 0.2, 0.2]
+        # p0 = [2, 0.1, 0.2, 0.2]
+        p0 = [0.0006, 0.1, 0.002, 0.001]
 
         # Perturb our parameters before optimization. This does so by taking each
         # parameter a up to a factor of two up or down.
