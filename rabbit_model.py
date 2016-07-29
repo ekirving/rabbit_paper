@@ -67,7 +67,8 @@ func_ex = dadi.Numerics.make_extrap_log_func(func)
 # print('Finshed optimization **************************************************')
 
 
-popt = [0.01083985, 0.14224231, 0.0041322, 0.1030695]
+# popt = [0.01083985, 0.14224231, 0.0041322, 0.1030695]
+popt = [  1.13641764e-04,   9.18228865e+00,   4.46261925e-05,   1.01605456e-03]
 
 print('Best-fit parameters: {0}'.format(popt))
 
@@ -85,6 +86,35 @@ fig = plt.figure(1)
 dadi.Plotting.plot_2d_comp_multinom(model, data, vmin=1, resid_range=3, fig_num=1)
 fig.savefig('test.pdf')
 plt.close(fig)
+
+# estimate of mutation rate... probably totally wrong
+mu = 4e-8
+
+# theta=4*Ne*mu
+# Ne=theta/(4*mu)
+# reference effective population size of the ancestral population (kind of)
+Ne = theta / (4 * mu)
+
+# Ne / theta for population 1
+theta1 = popt[1] * theta
+N1 = popt[1] * Ne
+
+# Ne / theta for population 2
+theta2 = popt[2] * theta
+N2 = popt[2] * Ne
+
+# T=2*Ne*t
+# t=T/(2*Ne)
+# This the time in generations
+time = popt[3] * (2 * Ne)
+
+print "mu={}".format(mu)
+#print "Ne={}".format(Ne)
+print "theta1={}".format(theta1)
+#print "N1={}".format(N1)
+print "theta2={}".format(theta2)
+#print "N2={}".format(N2)
+#print "time={}".format(time)
 
 # # ----------------------------------------------------------------------------------------------------------------------
 #
