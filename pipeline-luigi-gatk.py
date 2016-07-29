@@ -803,7 +803,7 @@ class AdmixturePlotK(luigi.Task):
 
         # generate a PDF of the admixture stacked column chart
         run_cmd(["Rscript",
-                 "plot-admix-k.R",
+                 "rscript/plot-admix-k.R",
                  self.output()[0].path,
                  self.output()[1].path])
 
@@ -844,7 +844,7 @@ class AdmixtureCV(luigi.Task):
 
         # plot the CV values as a line graph
         run_cmd(["Rscript",
-                 "plot-line-graph.R",
+                 "rscript/plot-line-graph.R",
                  self.output()[0].path,
                  self.output()[1].path,
                  "Ancestral populations (K)",
@@ -943,7 +943,7 @@ class sNMF_PlotK(luigi.Task):
 
         # generate a PDF of the admixture stacked column chart
         run_cmd(["Rscript",
-                 "plot-admix-k.R",
+                 "rscript/plot-admix-k.R",
                  self.output()[0].path,
                  self.output()[1].path])
 
@@ -983,7 +983,7 @@ class sNMF_CE(luigi.Task):
 
         # plot the CV values as a line graph
         run_cmd(["Rscript",
-                 "plot-line-graph.R",
+                 "rscript/plot-line-graph.R",
                  self.output()[0].path,
                  self.output()[1].path,
                  "Ancestral populations (K)",
@@ -1059,7 +1059,7 @@ class FlashPCAPlot(luigi.Task):
             for labeled, pdf_path in pdfs.iteritems():
                 # generate a PDF of the PCA plot
                 run_cmd(["Rscript",
-                         "plot-flashpca.R",
+                         "rscript/plot-flashpca.R",
                          "flashpca/pca_{0}.data".format(self.group),  # pca data
                          "flashpca/pve_{0}.txt".format(self.group),   # pve data
                          pdf_path,                                    # pdf location
@@ -1108,7 +1108,7 @@ class APE_PlotTree(luigi.Task):
 
         # generate a tree from the labeled data
         run_cmd(["Rscript",
-                 "plot-phylo-tree.R",
+                 "rscript/plot-phylo-tree.R",
                  self.output()[0].path,
                  self.output()[1].path,
                  self.output()[2].path])
