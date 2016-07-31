@@ -168,8 +168,8 @@ class SamtoolsSortBam(SetupTask):
         return BwaMem(self.sample, self.genome, self.paired)
 
     def output(self):
-        filename = trim_ext(os.path.basename(self.input().path))
-        return luigi.LocalTarget("bam/{1}.bam".format(filename))
+        filename = trim_path_ext(self.input().path)
+        return luigi.LocalTarget("bam/{0}.bam".format(filename))
 
     def run(self):
 
@@ -285,7 +285,7 @@ class GatkHaplotypeCaller(SetupTask):
         yield SamtoolsIndexBam(self.sample, self.genome)
 
     def output(self):
-        # filename = trim_ext(os.path.basename(self.input().path))
+        # filename = trim_path_ext(self.input().path)
         return luigi.LocalTarget("vcf/{0}.g.vcf".format(self.sample))
 
     def run(self):
@@ -382,7 +382,7 @@ class PlinkMakeBed(SetupTask):
         yield GatkSelectVariants(self.population, self.samples, self.genome)
 
     def output(self):
-        filename = trim_ext(os.path.basename(self.input().path))
+        filename = trim_path_ext(self.input().path)
         return [luigi.LocalTarget("ped/{0}.ped".format(filename)),
                 luigi.LocalTarget("bed/{0}.bed".format(filename))]
 
@@ -562,9 +562,8 @@ class AdmixtureK(SetupTask):
         return PlinkPruneBed(self.group, self.genome)
 
     def output(self):
-        filename = trim_ext(os.path.basename(self.input().path))
-        extensions = ['P', 'Q', 'log']
-        return [luigi.LocalTarget("admix/{0}.{1}.{2}".format(filename, self.k, ext)) for ext in extensions]
+        filename = trim_path_ext(self.input().path)
+        return luigi.LocalTarget("admix/{0}.{1}.Q".format(filename, self.k))
 
     def run(self):
 
@@ -582,8 +581,11 @@ class AdmixtureK(SetupTask):
         # restore previous working directory
         os.chdir('..')
 
+        # TODO log everything like this!
+        log_file = replace_ext(self.output().path, "log")
+
         # save the log file
-        with self.output()[2].open('w') as fout:
+        with open(log_file, 'w') as fout:
             fout.write(log)
 
 
@@ -599,15 +601,15 @@ class AdmixturePlotK(SetupTask):
         return AdmixtureK(self.group, self.genome, self.k)
 
     def output(self):
-        extensions = ['data', 'pdf']
-        return [luigi.LocalTarget("admix/{0}.pruned.{1}.data".format(self.group, self.k)),
-                luigi.LocalTarget("pdf/{0}.admix.K.{1}.pdf".format(self.group, self.k))]
+        filename = trim_path_ext(self.input().path)
+        return luigi.LocalTarget("pdf/admix.{0}.pdf".format(filename))
 
     def run(self):
 
+        # TODO what about the ".fam" file?
         # use awk and paste to add population and sample names, needed for the plot
         awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) + ".fam | " \
-              "paste - admix/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
+              "paste - " + self.input().path
 
         data = run_cmd([awk], returnout=True, shell=True)
 
@@ -615,16 +617,18 @@ class AdmixturePlotK(SetupTask):
         header = ["Pop{}".format(i) for i in range(1, int(self.k) + 1)]
         header.insert(0, "Samples")
 
+        labeled_file = replace_ext(self.input().path, "data")
+
         # save the labeled file
-        with self.output()[0].open('w') as fout:
+        with open(labeled_file, 'w') as fout:
             fout.write("\t".join(header)+"\n")
             fout.write(data)
 
         # generate a PDF of the admixture stacked column chart
         run_cmd(["Rscript",
                  "rscript/plot-admix-k.R",
-                 self.output()[0].path,
-                 self.output()[1].path])
+                 labeled_file,
+                 self.output().path])
 
 
 class AdmixtureCV(SetupTask):
@@ -640,11 +644,12 @@ class AdmixtureCV(SetupTask):
             yield AdmixturePlotK(self.group, self.genome, k)
 
     def output(self):
-        return [luigi.LocalTarget("admix/{0}.pruned.CV.data".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.admix.CV.pdf".format(self.group)),]
+        filename = trim_path_ext(trim_ext(self.input()[0].path))
+        return luigi.LocalTarget("pdf/admix.{0}.CV.pdf".format(filename))
 
     def run(self):
 
+        # TODO replace dependence on filename pattern
         # use grep to extract the cross-validation scores from all the log files
         cvs = run_cmd(["grep -h CV admix/{0}*.log".format(self.group)], returnout=True, shell=True)
 
@@ -655,8 +660,10 @@ class AdmixtureCV(SetupTask):
         # get the three lowest CV scores
         # bestfit = sorted(data, key=lambda x: x[1])[0:3]
 
+        cvdata_file = "{0}.CV.data".format(trim_ext(trim_ext(self.input()[0].path)))
+
         # write the scores to a data file
-        with self.output()[0].open('w') as fout:
+        with open(cvdata_file, 'w') as fout:
             fout.write("\t".join(["K", "CV"]) + "\n")
             for row in data:
                 fout.write("\t".join(str(datum) for datum in row) + "\n")
@@ -664,8 +671,8 @@ class AdmixtureCV(SetupTask):
         # plot the CV values as a line graph
         run_cmd(["Rscript",
                  "rscript/plot-line-graph.R",
-                 self.output()[0].path,
-                 self.output()[1].path,
+                 cvdata_file,
+                 self.output().path,
                  "Ancestral populations (K)",
                  "Cross-validation Error"])
 
@@ -681,20 +688,26 @@ class sNMF_Ped2Geno(SetupTask):
         return PlinkPruneBed(self.group, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("snmf/{0}.pruned.geno".format(self.group))
+        filename = trim_path_ext(self.input().path)
+        return luigi.LocalTarget("snmf/{0}.geno".format(filename))
 
     def run(self):
+
+        # plink requires extensionless filenames
+        filename = trim_path_ext(self.input().path)
+        bedname = "bed/{0}".format(filename)
+        pedname = "ped/{0}".format(filename)
 
         # convert from BED to PED (because sNMF can't handle BED files)
         run_cmd(["plink",
                  "--recode", "12",
-                 "--bfile", "bed/{0}.pruned".format(self.group),
-                 "--out", "ped/{0}.pruned".format(self.group)])
+                 "--bfile", bedname,
+                 "--out", pedname])
 
         # convert from PED to GENO
         run_cmd(["ped2geno",
-                 "ped/{0}.pruned.ped".format(self.group),
-                 "snmf/{0}.pruned.geno".format(self.group)])
+                 "{0}.ped".format(pedname),
+                 self.output().path])
 
 
 class sNMF_K(SetupTask):
@@ -709,21 +722,23 @@ class sNMF_K(SetupTask):
         return sNMF_Ped2Geno(self.group, self.genome)
 
     def output(self):
-        extensions = ['G', 'Q', 'log']
-        return [luigi.LocalTarget("snmf/{0}.pruned.{1}.{2}".format(self.group, self.k, ext)) for ext in extensions]
+        filename = trim_path_ext(self.input().path)
+        return luigi.LocalTarget("snmf/{0}.{1}.Q".format(filename, self.k))
 
     def run(self):
 
         # run sNMF on the geno file, and compute the cross-entropy criterion
         log = run_cmd(["sNMF",
                        "-p", MAX_CPU_CORES,
-                       "-x", "snmf/{0}.pruned.geno".format(self.group),
+                       "-x", self.input().path,
                        "-K", self.k,
                        "-c"],
                       returnout=True)
 
+        log_file = replace_ext(self.input().path, "log")
+
         # save the log file
-        with self.output()[2].open('w') as fout:
+        with open(log_file, 'w') as fout:
             fout.write(log)
 
 
@@ -739,15 +754,15 @@ class sNMF_PlotK(SetupTask):
         return sNMF_K(self.group, self.genome, self.k)
 
     def output(self):
-        extensions = ['data', 'pdf']
-        return [luigi.LocalTarget("snmf/{0}.pruned.{1}.data".format(self.group, self.k)),
-                luigi.LocalTarget("pdf/{0}.snmf.K.{1}.pdf".format(self.group, self.k))]
+        filename = trim_path_ext(self.input().path)
+        return luigi.LocalTarget("pdf/snmf.{0}.pdf".format(filename))
 
     def run(self):
 
+        # TODO fam file dependency
         # use awk and paste to add population and sample names, needed for the plot
         awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) + ".fam | " \
-              "paste - snmf/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
+              "paste - " + self.input().path
 
         data = run_cmd([awk], returnout=True, shell=True)
 
@@ -755,16 +770,18 @@ class sNMF_PlotK(SetupTask):
         header = ["Pop{}".format(i) for i in range(1, int(self.k) + 1)]
         header.insert(0, "Samples")
 
+        labeled_file = replace_ext(self.input().path, "data")
+
         # save the labeled file
-        with self.output()[0].open('w') as fout:
+        with open(labeled_file, 'w') as fout:
             fout.write("\t".join(header)+"\n")
             fout.write(data)
 
         # generate a PDF of the admixture stacked column chart
         run_cmd(["Rscript",
                  "rscript/plot-admix-k.R",
-                 self.output()[0].path,
-                 self.output()[1].path])
+                 labeled_file,
+                 self.output().path])
 
 
 class sNMF_CE(SetupTask):
@@ -780,22 +797,25 @@ class sNMF_CE(SetupTask):
             yield sNMF_PlotK(self.group, self.genome, k)
 
     def output(self):
-        return [luigi.LocalTarget("snmf/{0}.pruned.CE.data".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.sNMF.CE.pdf".format(self.group)),]
+        filename = trim_path_ext(trim_ext(self.input()[0].path))
+        return luigi.LocalTarget("pdf/sNMF.{0}.CV.pdf".format(filename))
 
     def run(self):
 
         # key phrase to look for in log files
         keyphrase = "Cross-Entropy (masked data):"
 
+        # TODO replace dependence on filename pattern
         # use grep to find the lines containing the cross-entropy scores from all the log files
         ces = run_cmd(["grep '" + keyphrase + "' snmf/{0}*.log".format(self.group)], returnout=True, shell=True)
 
         # extract the K value and cross-entropy score
         data = [tuple([re.sub(r'[^\d.]+', "", val).strip('.') for val in ce.split(keyphrase)]) for ce in ces.splitlines()]
 
+        cedata_file = "{0}.CV.data".format(trim_ext(trim_ext(self.input()[0].path)))
+
         # write the scores to a data file
-        with self.output()[0].open('w') as fout:
+        with open(cedata_file, 'w') as fout:
             fout.write("\t".join(["K", "Cross-Entropy"]) + "\n")
             for row in data:
                 fout.write("\t".join(str(datum) for datum in row) + "\n")
@@ -803,8 +823,8 @@ class sNMF_CE(SetupTask):
         # plot the CV values as a line graph
         run_cmd(["Rscript",
                  "rscript/plot-line-graph.R",
-                 self.output()[0].path,
-                 self.output()[1].path,
+                 cedata_file,
+                 self.output().path,
                  "Ancestral populations (K)",
                  "Cross-Entropy (masked data)"])
 
@@ -820,18 +840,21 @@ class FlashPCA(SetupTask):
         return PlinkMergeBeds(self.group, self.genome)
 
     def output(self):
-        prefixes = ['eigenvalues', 'eigenvectors', 'pcs', 'pve']
-        return [luigi.LocalTarget("flashpca/{0}_{1}.txt".format(prefix, self.group)) for prefix in prefixes]
+        prefixes = ['pcs', 'pve']
+        filename = trim_path_ext(self.input().path)
+        return [luigi.LocalTarget("flashpca/{0}_{1}.txt".format(prefix, filename)) for prefix in prefixes]
 
     def run(self):
 
         # flashpca only outputs to the current directory
         os.chdir('./flashpca')
 
+        filename = trim_path_ext(self.input().path)
+
         run_cmd(["flashpca",
-                 "--bfile", "../bed/{0}".format(self.group),
+                 "--bfile", "../{0}".format(self.input().path),
                  "--numthreads", MAX_CPU_CORES,
-                 "--suffix", "_{0}.txt".format(self.group)],
+                 "--suffix", "_{0}.txt".format(filename)],
                 pwd='../')
 
         # restore previous working directory

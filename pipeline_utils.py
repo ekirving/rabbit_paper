@@ -362,5 +362,14 @@ def generate_frequency_spectrum(populations):
 
     return output
 
+
 def trim_ext(fullpath):
     return ('.').join(fullpath.split('.')[:-1])
+
+
+def trim_path_ext(fullpath):
+    return trim_ext(os.path.basename(fullpath))
+
+
+def replace_ext(filename, newext):
+    return "{0}.{1}".format(trim_ext(filename), newext)
