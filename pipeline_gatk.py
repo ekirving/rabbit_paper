@@ -115,6 +115,9 @@ class BwaMem(luigi.Task):
     genome = luigi.Parameter()
     paired = luigi.BoolParameter()
 
+    # TODO add resource constrants to bwa mem processes so the server doesn't crash
+    # http://stackoverflow.com/questions/33429847/how-to-avoid-running-a-specific-task-simultaneously-in-luigi-with-multiple-worke
+
     def requires(self):
         return [SraToolsFastqDump(self.sample),
                 BwaIndexBwtsw(self.genome)]
