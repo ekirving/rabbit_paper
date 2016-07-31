@@ -7,17 +7,18 @@ import numpy
 
 # Parse the data file to generate the data dictionary
 dd = dadi.Misc.make_data_dict('./fsdata/all-pops.data')
+fs = dadi.Spectrum.from_data_dict(dd, ['DOM', 'WLD-FRE'], [16, 14], polarized=True)
 
-data = dadi.Spectrum.from_data_dict(dd, ['DOM', 'WLD-FRE'], [16, 14], polarized=True)
-
+# load the frequency spectrum
+# fs1 = dadi.Spectrum.from_file("fsdata/DOM_WLD-FRE.fs")
 
 # import pylab
-# # # dadi.Plotting.plot_1d_fs(data)
-# dadi.Plotting.plot_single_2d_sfs(data)
+# # # dadi.Plotting.plot_1d_fs(fs)
+# dadi.Plotting.plot_single_2d_sfs(fs)
 # pylab.show()
 # exit()
 
-ns = data.sample_sizes
+ns = fs.sample_sizes
 
 # These are the grid point settings will use for extrapolation.
 pts_l = [10,50,60]
@@ -68,22 +69,24 @@ func_ex = dadi.Numerics.make_extrap_log_func(func)
 
 
 # popt = [0.01083985, 0.14224231, 0.0041322, 0.1030695]
-popt = [  1.13641764e-04,   9.18228865e+00,   4.46261925e-05,   1.01605456e-03]
+# popt = [  9.94154474,  76.55583649,   1.4592578,    1.69040534]
+popt = [ 0.08603252,  4.29352367,  1.73531144,  9.85191353]
+# popt = [ 0.13750992,  5.11870398,  2.67132526,  5.90074212]
 
 print('Best-fit parameters: {0}'.format(popt))
 
 # Calculate the best-fit model AFS.
 model = func_ex(popt, ns, pts_l)
 # Likelihood of the data given the model AFS.
-ll_model = dadi.Inference.ll_multinom(model, data)
+ll_model = dadi.Inference.ll_multinom(model, fs)
 print('Maximum log composite likelihood: {0}'.format(ll_model))
 # The optimal value of theta given the model.
-theta = dadi.Inference.optimal_sfs_scaling(model, data)
+theta = dadi.Inference.optimal_sfs_scaling(model, fs)
 print('Optimal value of theta: {0}'.format(theta))
 
 # plot the figure
 fig = plt.figure(1)
-dadi.Plotting.plot_2d_comp_multinom(model, data, vmin=1, resid_range=3, fig_num=1)
+dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=3, fig_num=1)
 fig.savefig('test.pdf')
 plt.close(fig)
 
@@ -109,12 +112,12 @@ N2 = popt[2] * Ne
 time = popt[3] * (2 * Ne)
 
 print "mu={}".format(mu)
-#print "Ne={}".format(Ne)
+print "Ne={}".format(Ne)
 print "theta1={}".format(theta1)
-#print "N1={}".format(N1)
+print "N1={}".format(N1)
 print "theta2={}".format(theta2)
-#print "N2={}".format(N2)
-#print "time={}".format(time)
+print "N2={}".format(N2)
+print "time={}".format(time)
 
 # # ----------------------------------------------------------------------------------------------------------------------
 #
