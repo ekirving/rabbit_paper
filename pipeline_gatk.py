@@ -6,14 +6,16 @@ from pipeline_dadi import *
 from pipeline_utils import *
 
 
-class SraToolsFastqDump(luigi.Task):
+class SraToolsFastqDump(SetupTask):
     """
     Fetches the paired-end and single end FASTQ files for a given sample ID, using SRA Tools
     """
     sample = luigi.Parameter()
 
     def output(self):
-        return [luigi.LocalTarget("fastq/{0}_{1}.fastq.gz".format(self.sample, i)) for i in [1, 2]]
+        return [luigi.LocalTarget("fastq/{0}.fastq.gz".format(self.sample)),    # unpaired
+                luigi.LocalTarget("fastq/{0}_1.fastq.gz".format(self.sample)),  # forward pair
+                luigi.LocalTarget("fastq/{0}_2.fastq.gz".format(self.sample))]  # reverse pair
 
     def run(self):
 
@@ -25,7 +27,7 @@ class SraToolsFastqDump(luigi.Task):
                  self.sample])
 
 
-class EnsemblReferenceFasta(luigi.Task):
+class EnsemblReferenceFasta(SetupTask):
     """
     Fetches the reference genome FASTA file from Ensembl
     """
@@ -36,9 +38,11 @@ class EnsemblReferenceFasta(luigi.Task):
 
     def run(self):
 
-        zipfile = "fasta/{0}.fa.gz".format(self.genome)
+        # get the name of the zip file
+        zipfile = os.path.basename(GENOME_URL)
 
         # TODO install ensembl perl API for a generic method of downloading fasta files
+
         # download the gzipped fasta file of the reference genome
         curl_download(GENOME_URL, zipfile)
 
@@ -49,7 +53,7 @@ class EnsemblReferenceFasta(luigi.Task):
             fout.write(fasta)
 
 
-class SamtoolsFaidx(luigi.Task):
+class SamtoolsFaidx(SetupTask):
     """
     Create the samtools fasta index for the reference genome, needed for GATK
     """
@@ -59,15 +63,15 @@ class SamtoolsFaidx(luigi.Task):
         return EnsemblReferenceFasta(self.genome)
 
     def output(self):
-        return luigi.LocalTarget("fasta/{0}.fa.fai".format(self.genome))
+        return luigi.LocalTarget("{0}.fai".format(self.input().path))
 
     def run(self):
         run_cmd([SAMTOOLS,
-                 "faidx",                              # index needed for CRAM files
-                 "fasta/{0}.fa".format(self.genome)])  # input file
+                 "faidx",
+                 self.input().path])  # fasta file
 
 
-class PicardCreateSequenceDictionary(luigi.Task):
+class PicardCreateSequenceDictionary(SetupTask):
     """
     Create the sequence dictionary for the reference genome, needed for GATK
     """
@@ -77,16 +81,17 @@ class PicardCreateSequenceDictionary(luigi.Task):
         return EnsemblReferenceFasta(self.genome)
 
     def output(self):
-        return luigi.LocalTarget("fasta/{0}.dict".format(self.genome))
+        filepath = trim_ext(self.input().path)
+        return luigi.LocalTarget("{0}.dict".format(filepath))
 
     def run(self):
         run_cmd(["java", "-jar", PICARD,
                  "CreateSequenceDictionary",
-                 "R=fasta/{0}.fa".format(self.genome),     # reference fasta file
-                 "O=fasta/{0}.dict".format(self.genome)])  # dictionary file
+                 "R={0}".format(self.input().path),    # reference fasta file
+                 "O={0}".format(self.output().path)])  # dictionary file
 
 
-class BwaIndexBwtsw(luigi.Task):
+class BwaIndexBwtsw(SetupTask):
     """
     Builds the BWA index for the reference genome, needed for performing alignments
     """
@@ -97,17 +102,17 @@ class BwaIndexBwtsw(luigi.Task):
 
     def output(self):
         extensions = ['amb', 'ann', 'bwt', 'pac', 'sa']
-        return [luigi.LocalTarget("fasta/{0}.fa.{1}".format(self.genome, ext)) for ext in extensions]
+        return [luigi.LocalTarget("{0}.{1}".format(self.input().path, ext)) for ext in extensions]
 
     def run(self):
 
         run_cmd(["bwa",
                  "index",                              # index needed for bwa alignment
                  "-a", "bwtsw",                        # algorithm suitable for mammals
-                 "fasta/{0}.fa".format(self.genome)])  # input file
+                 self.input().path])  # input file
 
 
-class BwaMem(luigi.Task):
+class BwaMem(SetupTask):
     """
     Align the paired end fastq files to the reference genome
     """
@@ -130,6 +135,7 @@ class BwaMem(luigi.Task):
 
         read_group = "@RG\\tID:{sample}\\tSM:{sample}".format(sample=self.sample)
 
+        # TODO how to resolve self.input() here
         if self.paired:
             fastq = ["fastq/{0}_1.fastq.gz".format(self.sample),  # pair 1
                      "fastq/{0}_2.fastq.gz".format(self.sample)]  # pair 2
@@ -150,7 +156,7 @@ class BwaMem(luigi.Task):
             fout.write(sam)
 
 
-class SamtoolsSortBam(luigi.Task):
+class SamtoolsSortBam(SetupTask):
     """
     Convert an uncompressed SAM file into BAM format, and sort it
     """
@@ -162,11 +168,10 @@ class SamtoolsSortBam(luigi.Task):
         return BwaMem(self.sample, self.genome, self.paired)
 
     def output(self):
-        suffix = "paired" if self.paired else "single"
-        return luigi.LocalTarget("bam/{0}.{1}.bam".format(self.sample, suffix))
+        filename = trim_ext(os.path.basename(self.input().path))
+        return luigi.LocalTarget("bam/{1}.bam".format(filename))
 
     def run(self):
-        suffix = "paired" if self.paired else "single"
 
         # perform the SAM -> BAM conversion and sorting
         bam = run_cmd([SAMTOOLS,
@@ -174,7 +179,7 @@ class SamtoolsSortBam(luigi.Task):
                        "-l", DEFAULT_COMPRESSION, # level of compression
                        "-@", MAX_CPU_CORES,       # number of cores
                        "-O", "bam",               # output a BAM file
-                       "sam/{0}.{1}.sam".format(self.sample, suffix)],
+                       self.input().path],
                       returnout=True)
 
         # save the BAM file
@@ -182,7 +187,7 @@ class SamtoolsSortBam(luigi.Task):
             fout.write(bam)
 
 
-class SamtoolsMergeBam(luigi.Task):
+class SamtoolsMergeBam(SetupTask):
     """
     Merge the two SAM files from the paired and unpaired reads.
     """
@@ -190,7 +195,7 @@ class SamtoolsMergeBam(luigi.Task):
     genome = luigi.Parameter()
 
     def requires(self):
-        # we require both the paired an unpaired BAM files
+        # we require both the paired and unpaired BAM files
         return [SamtoolsSortBam(self.sample, self.genome, True),
                 SamtoolsSortBam(self.sample, self.genome, False)]
 
@@ -198,18 +203,21 @@ class SamtoolsMergeBam(luigi.Task):
         return luigi.LocalTarget("bam/{0}.bam".format(self.sample))
 
     def run(self):
+
+        # get the bam files to merge
+        in_files = [input.path for input in self.input()]
+
         # perform the SAM -> BAM conversion and sorting
         bam = run_cmd([SAMTOOLS,
-                       "merge",                                   # sort the reads
-                       "-c",                                      # combine the @RG headers
-                       "-@", MAX_CPU_CORES,                       # number of cores
-                       "bam/{0}.bam".format(self.sample),         # output file
-                       "bam/{0}.paired.bam".format(self.sample),
-                       "bam/{0}.single.bam".format(self.sample)],
+                       "merge",              # merge the files
+                       "-c",                 # combine the @RG headers
+                       "-@", MAX_CPU_CORES,  # number of cores
+                       self.output().path]   # output file
+                       + in_files,           # input files
                       returnout=True)
 
 
-class PicardMarkDuplicates(luigi.Task):
+class PicardMarkDuplicates(SetupTask):
     """
     Remove PCR duplicates, so we don't overestimate coverage
     """
@@ -220,26 +228,27 @@ class PicardMarkDuplicates(luigi.Task):
         return SamtoolsMergeBam(self.sample, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("bam/{0}.rmdup.bam".format(self.sample))
+        filepath = trim_ext(self.input().path)
+        return luigi.LocalTarget("{0}.rmdup.bam".format(filepath))
 
     def run(self):
 
-        # https://broadinstitute.github.io/picard/command-line-overview.html#FixMateInformation
-        run_cmd(["java", "-jar", PICARD,
-                 "FixMateInformation",
-                 "INPUT=bam/{0}.bam".format(self.sample)])
+        # TODO remove when confirmed unnecessary
+        # # https://broadinstitute.github.io/picard/command-line-overview.html#FixMateInformation
+        # run_cmd(["java", "-jar", PICARD,
+        #          "FixMateInformation",
+        #          "INPUT={0}".format(self.input().path)])
 
-        # https://broadinstitute.github.io/picard/command-line-overview.html#MarkDuplicates
         run_cmd(["java", "-jar", PICARD,
                  "MarkDuplicates",
-                 "INPUT=bam/{0}.bam".format(self.sample),
-                 "OUTPUT=bam/{0}.rmdup.bam".format(self.sample),
-                 "METRICS_FILE=bam/{0}.rmdup.txt".format(self.sample),
+                 "INPUT={0}".format(self.input().path),
+                 "OUTPUT={0}".format(self.output().path),
+                 "METRICS_FILE={0}.txt".format(trim_ext(self.output().path)),
                  "REMOVE_DUPLICATES=true",
                  "QUIET=true"])
 
 
-class SamtoolsIndexBam(luigi.Task):
+class SamtoolsIndexBam(SetupTask):
     """
     Create an index for the BAM file, for fast random access
     """
@@ -247,7 +256,7 @@ class SamtoolsIndexBam(luigi.Task):
     genome = luigi.Parameter()
 
     def output(self):
-        return luigi.LocalTarget("bam/{0}.rmdup.bam.bai".format(self.sample))
+        return luigi.LocalTarget("{0}.bai".format(self.input().path))
 
     def requires(self):
         return PicardMarkDuplicates(self.sample, self.genome)
@@ -256,11 +265,11 @@ class SamtoolsIndexBam(luigi.Task):
 
         run_cmd([SAMTOOLS,
                  "index",
-                 "-b",                                      # create a BAI index
-                 "bam/{0}.rmdup.bam".format(self.sample)])  # file to index
+                 "-b",                # create a BAI index
+                 self.input().path])  # file to index
 
 
-class GatkHaplotypeCaller(luigi.Task):
+class GatkHaplotypeCaller(SetupTask):
     """
     Convert the BAM file into a gVCF
     """
@@ -276,9 +285,12 @@ class GatkHaplotypeCaller(luigi.Task):
         yield SamtoolsIndexBam(self.sample, self.genome)
 
     def output(self):
+        # filename = trim_ext(os.path.basename(self.input().path))
         return luigi.LocalTarget("vcf/{0}.g.vcf".format(self.sample))
 
     def run(self):
+
+        # TODO how to resolve self.input()
 
         run_cmd(["java", "-Xmx8G", "-jar", GATK,
                  "-T", "HaplotypeCaller",                   # use the HaplotypeCaller to call variants
@@ -290,10 +302,10 @@ class GatkHaplotypeCaller(luigi.Task):
                  "-stand_emit_conf", "10",                  # min confidence threshold
                  "-stand_call_conf", MIN_GENOTYPE_QUAL,     # min call threshold
                  "-I", "bam/{0}.rmdup.bam".format(self.sample),
-                 "-o", "vcf/{0}.g.vcf".format(self.sample)])
+                 "-o", self.output().path])
 
 
-class GatkGenotypeGVCFs(luigi.Task):
+class GatkGenotypeGVCFs(SetupTask):
     """
     Joint genotype all the samples in a population
     """
@@ -310,6 +322,8 @@ class GatkGenotypeGVCFs(luigi.Task):
         return luigi.LocalTarget("vcf/{0}.vcf".format(self.population))
 
     def run(self):
+        # TODO how to resolve self.input()
+
         # make a list of input files
         vcf_files = sum([["-V", "vcf/{0}.g.vcf".format(sample)] for sample in self.samples], [])
 
@@ -318,11 +332,11 @@ class GatkGenotypeGVCFs(luigi.Task):
                  "--num_threads", MAX_CPU_CORES,            # number of data threads to allocate to this analysis
                  "--includeNonVariantSites",                # include loci found to be non-variant after genotyping
                  "-R", "fasta/{0}.fa".format(self.genome),  # the indexed reference genome
-                 "-o", "vcf/{0}.vcf".format(self.population)]
+                 "-o", self.output().path]
                 + vcf_files)
 
 
-class GatkSelectVariants(luigi.Task):
+class GatkSelectVariants(SetupTask):
     """
     Select only biallelic variant sites for downstream analysis
     """
@@ -335,26 +349,28 @@ class GatkSelectVariants(luigi.Task):
         return GatkGenotypeGVCFs(self.population, self.samples, self.genome)
 
     def output(self):
-        return luigi.LocalTarget("vcf/{0}.variant.vcf".format(self.population))
+        filepath = trim_ext(self.input().path)
+        return luigi.LocalTarget("{0}.variant.vcf".format(filepath))
 
     def run(self):
 
         run_cmd(["java", "-Xmx2g", "-jar", GATK,
                  "-T", "SelectVariants",
-                 "-R", "fasta/{0}.fa".format(self.genome),
-                 "-V", "vcf/{0}.vcf".format(self.population),
-                 "-o", "vcf/{0}.variant.vcf".format(self.population),
                  "--selectTypeToInclude", "SNP",
-                 "--restrictAllelesTo", "BIALLELIC"])
+                 "--restrictAllelesTo", "BIALLELIC",
+                 "-R", "fasta/{0}.fa".format(self.genome), # TODO how can I fetch this from downstream
+                 "-V", self.input().path,
+                 "-o", self.output().path])
 
         # because SelectVariants doesn't handle having "*" in the ALT column we need to grep all those sites out
-        vcf = run_cmd(["grep -Pv '\t\*\t' vcf/" + str(self.population) + ".variant.vcf"], shell=True, returnout=True)
+        vcf = run_cmd(["grep -Pv '\t\*\t' " + str(self.output().path)], shell=True, returnout=True)
 
         # overwrite the vcf with the filtered data
         with self.output().open('w') as fout:
             fout.write(vcf)
 
-class PlinkMakeBed(luigi.Task):
+
+class PlinkMakeBed(SetupTask):
     """
     Convert a population gVCF into a BED file (binary pedigree)
     """
@@ -366,36 +382,44 @@ class PlinkMakeBed(luigi.Task):
         yield GatkSelectVariants(self.population, self.samples, self.genome)
 
     def output(self):
-        extensions = ['bed', 'bim', 'fam']
-        return [luigi.LocalTarget("bed/{0}.{1}".format(self.population, ext)) for ext in extensions]
+        filename = trim_ext(os.path.basename(self.input().path))
+        return [luigi.LocalTarget("ped/{0}.ped".format(filename)),
+                luigi.LocalTarget("bed/{0}.bed".format(filename))]
 
     def run(self):
+
+        # plink requires extensionless filenames
+        pedname = trim_ext(self.output()[0])
+        bedname = trim_ext(self.output()[1])
 
         # convert VCF to PED
         run_cmd(["plink",
                  "--recode",
-                 "--const-fid", self.population,
+                 "--const-fid", self.population,  # use population name as "family" id
                  "--biallelic-only", "strict",
                  "--vcf-min-qual", MIN_GENOTYPE_QUAL,
                  "--vcf-require-gt",
-                 "--vcf", "vcf/{0}.variant.vcf".format(self.population),
-                 "--out", "ped/{0}".format(self.population)])
+                 "--vcf", self.input().path,
+                 "--out", pedname])
+
+        # plink requres that all sites have a unique variant name, we we'll have to bodge the map file a little
+        mapfile = "{0}.map".format(pedname)
 
         # use awk to add variant IDs, so we can identify polyallelic sites during merge
-        data = run_cmd(["awk '$2=$1\"-\"$4' ped/" + str(self.population) + ".map"], returnout=True, shell=True)
+        data = run_cmd(["awk '$2=$1\"-\"$4' " + mapfile], returnout=True, shell=True)
 
         # replace the old map file
-        with open("ped/{0}.map".format(self.population), 'w') as fout:
+        with open(mapfile, 'w') as fout:
             fout.write(data)
 
         # convert PED to BED
         run_cmd(["plink",
                  "--make-bed",
-                 "--file", "ped/{0}".format(self.population),
-                 "--out", "bed/{0}".format(self.population)])
+                 "--file", pedname,
+                 "--out", bedname])
 
 
-class PlinkMergeBeds(luigi.Task):
+class PlinkMergeBeds(SetupTask):
     """
     Merge multiple BED files into one
     """
@@ -407,8 +431,7 @@ class PlinkMergeBeds(luigi.Task):
             yield PlinkMakeBed(population, samples, self.genome)
 
     def output(self):
-        extensions = ['bed', 'bim', 'fam']
-        return [luigi.LocalTarget("bed/{0}.{1}".format(self.group, ext)) for ext in extensions]
+        return luigi.LocalTarget("bed/{0}.bed".format(self.group))
 
     def run(self):
 
@@ -428,6 +451,8 @@ class PlinkMergeBeds(luigi.Task):
         # make the merge-list with the remaining BED files
         with open("bed/{0}.list".format(self.group), 'w') as fout:
             fout.write("\n".join(bed_files))
+
+        # TODO make --geno a separate task and add to filename
 
         # compose the merge command, because we are going to need it twice (retains ~8.6k variants)
         merge = ["plink",
@@ -465,7 +490,7 @@ class PlinkMergeBeds(luigi.Task):
             os.remove(tmp)
 
 
-class PlinkIndepPairwise(luigi.Task):
+class PlinkIndepPairwise(SetupTask):
     """
     Produce a list of SNPs with high discriminating power, by filtering out minor allele frequency and sites under
     linkage disequilibrium
@@ -482,6 +507,7 @@ class PlinkIndepPairwise(luigi.Task):
 
     def run(self):
 
+        # TODO make --maf a separate task and add to filename
         # apply a filter on minor allele frequencies
         # retains ~94k SNPs (from ~123k)
         run_cmd(["plink",
@@ -490,6 +516,7 @@ class PlinkIndepPairwise(luigi.Task):
                  "--bfile", "bed/{0}".format(self.group),
                  "--out", "bed/{0}.maf-0.1".format(self.group)])
 
+        # TODO make --indep-pairwise a separate task and add to filename
         # calculate the prune list (prune.in / prune.out)
         # retains ~12k SNPs (from ~94k)
         run_cmd(["plink",
@@ -498,7 +525,7 @@ class PlinkIndepPairwise(luigi.Task):
                  "--out", "bed/{0}".format(self.group)])
 
 
-class PlinkPruneBed(luigi.Task):
+class PlinkPruneBed(SetupTask):
     """
     Prune the merged group BED file using the prune.in list from PlinkIndepPairwise()
     """
@@ -509,20 +536,21 @@ class PlinkPruneBed(luigi.Task):
         return PlinkIndepPairwise(self.group, self.genome)
 
     def output(self):
-        extensions = ['bed', 'bim', 'fam']
-        return [luigi.LocalTarget("bed/{0}.pruned.{1}".format(self.group, ext)) for ext in extensions]
+        filepath = trim_ext(self.input().path)
+        return luigi.LocalTarget("{0}.pruned.bed".format(filepath))
 
     def run(self):
 
+        # TODO fix inputs
         # apply the prune list
         run_cmd(["plink",
                  "--make-bed",
                  "--extract", "bed/{0}.prune.in".format(self.group),
                  "--bfile", "bed/{0}".format(self.group),
-                 "--out", "bed/{0}.pruned".format(self.group)])
+                 "--out", trim_ext(self.output().path)])
 
 
-class AdmixtureK(luigi.Task):
+class AdmixtureK(SetupTask):
     """
     Run admixture, with K ancestral populations, on the pruned BED files
     """
@@ -534,8 +562,9 @@ class AdmixtureK(luigi.Task):
         return PlinkPruneBed(self.group, self.genome)
 
     def output(self):
+        filename = trim_ext(os.path.basename(self.input().path))
         extensions = ['P', 'Q', 'log']
-        return [luigi.LocalTarget("admix/{0}.pruned.{1}.{2}".format(self.group, self.k, ext)) for ext in extensions]
+        return [luigi.LocalTarget("admix/{0}.{1}.{2}".format(filename, self.k, ext)) for ext in extensions]
 
     def run(self):
 
@@ -544,10 +573,10 @@ class AdmixtureK(luigi.Task):
 
         # TODO what about bootstrapping (-B / -B2000)
         log = run_cmd(["admixture",
-                       "-j{}".format(MAX_CPU_CORES),                # use multi-threading
-                       "--cv",                                      # include cross-validation standard errors
-                       "../bed/{0}.pruned.bed".format(self.group),  # using this input file
-                       self.k],  # for K ancestral populations
+                       "-j{0}".format(MAX_CPU_CORES),       # use multi-threading
+                       "--cv",                              # include cross-validation standard errors
+                       "../{0}".format(self.input().path),  # using this input file
+                       self.k],                             # for K ancestral populations
                       returnout=True, pwd='../')
 
         # restore previous working directory
@@ -558,7 +587,7 @@ class AdmixtureK(luigi.Task):
             fout.write(log)
 
 
-class AdmixturePlotK(luigi.Task):
+class AdmixturePlotK(SetupTask):
     """
     Use ggplot to plot the admixture Q stats
     """
@@ -598,7 +627,7 @@ class AdmixturePlotK(luigi.Task):
                  self.output()[1].path])
 
 
-class AdmixtureCV(luigi.Task):
+class AdmixtureCV(SetupTask):
     """
     Run admixture for the given population, determine the optimal K value, and plot the graphs
     """
@@ -641,7 +670,7 @@ class AdmixtureCV(luigi.Task):
                  "Cross-validation Error"])
 
 
-class sNMF_Ped2Geno(luigi.Task):
+class sNMF_Ped2Geno(SetupTask):
     """
     Convert from BED to PED to Geno file type
     """
@@ -668,7 +697,7 @@ class sNMF_Ped2Geno(luigi.Task):
                  "snmf/{0}.pruned.geno".format(self.group)])
 
 
-class sNMF_K(luigi.Task):
+class sNMF_K(SetupTask):
     """
     Run sNMF, with K ancestral populations, on the pruned BED files
     """
@@ -698,7 +727,7 @@ class sNMF_K(luigi.Task):
             fout.write(log)
 
 
-class sNMF_PlotK(luigi.Task):
+class sNMF_PlotK(SetupTask):
     """
     Use ggplot to plot the admixture Q stats
     """
@@ -738,7 +767,7 @@ class sNMF_PlotK(luigi.Task):
                  self.output()[1].path])
 
 
-class sNMF_CE(luigi.Task):
+class sNMF_CE(SetupTask):
     """
     Run sNMF for the given population, determine the optimal K value, and plot the graphs
     """
@@ -780,7 +809,7 @@ class sNMF_CE(luigi.Task):
                  "Cross-Entropy (masked data)"])
 
 
-class FlashPCA(luigi.Task):
+class FlashPCA(SetupTask):
     """
     Run flashpca on the pruned BED files
     """
@@ -809,7 +838,7 @@ class FlashPCA(luigi.Task):
         os.chdir('..')
 
 
-class FlashPCAPlot(luigi.Task):
+class FlashPCAPlot(SetupTask):
     """
     Use ggplot to plot the PCA
     """
@@ -858,7 +887,7 @@ class FlashPCAPlot(luigi.Task):
                          labeled])                                    # show point labels (0/1)
 
 
-class APE_PlotTree(luigi.Task):
+class APE_PlotTree(SetupTask):
     """
     Create a phylogenetic tree from a pruned BED file
     """

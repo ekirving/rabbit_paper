@@ -361,3 +361,6 @@ def generate_frequency_spectrum(populations):
         output += 'chr{}\t{}\n'.format(chrom, pos)
 
     return output
+
+def trim_ext(fullpath):
+    return ('.').join(fullpath.split('.')[:-1])
