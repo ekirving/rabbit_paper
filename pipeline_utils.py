@@ -1,9 +1,26 @@
 #!/usr/bin/python
-import subprocess, datetime, hashlib, os, logging
+import luigi, subprocess, datetime, hashlib, os, logging
 from collections import defaultdict
 
 # import all the constants
 from pipeline_consts import *
+
+
+class SetupTask(luigi.Task):
+    """
+    Custom task class that implements a setup hook
+    """
+    def __init__(self, *args, **kwargs):
+
+        # call the luigi.Task init method
+        luigi.Task.__init__(self, *args, **kwargs)
+
+        try:
+            self.setup()
+        except AttributeError:
+            # do nothing if setup hook is not defined
+            pass
+
 
 def run_cmd(cmd, returnout=True, shell=False, pwd='./'):
     """

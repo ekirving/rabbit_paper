@@ -10,7 +10,7 @@ from pipeline_gatk import *
 from pipeline_utils import *
 
 
-class SiteFrequencySpectrum(luigi.Task):
+class SiteFrequencySpectrum(SetupTask):
     """
     Produce the site frequency spectrum, based on genotype calls from GATK GenotypeGVCFs
     """
@@ -37,7 +37,7 @@ class SiteFrequencySpectrum(luigi.Task):
             fout.write(fsdata)
 
 
-class DadiSpectrum(luigi.Task):
+class DadiSpectrum(SetupTask):
     """
     Generate the dadi Spectrum file for the two populations
     """
@@ -45,31 +45,33 @@ class DadiSpectrum(luigi.Task):
     pop1 = luigi.Parameter()
     pop2 = luigi.Parameter()
 
+    def setup(self):
+        # get the two populations
+        self.pops = [self.pop1, self.pop2]
+
+        # project each population down by one diploid sample (i.e. 2) to maximise the data in the frequency spectrum
+        self.prjt = [(len(POPULATIONS[pop]) - 1) * 2 for pop in self.pops]
+
     def requires(self):
         return SiteFrequencySpectrum(self.group, GENOME)
 
     def output(self):
-        return luigi.LocalTarget("fsdata/{0}_{1}.fs".format(self.pop1, self.pop2))
+        return luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}.fs".format(self.pops[0], self.prjt[0],
+                                                                    self.pops[1], self.prjt[1]))
 
     def run(self):
 
         # parse the data file to generate the data dictionary
-        dd = dadi.Misc.make_data_dict("fsdata/{0}.data".format(self.group))
-
-        # get the two populations
-        pops = [self.pop1, self.pop2]
-
-        # project each population down by one sample to allow for a little missing coverage
-        prj = [(len(POPULATIONS[pop]) - 1)* 2 for pop in pops]
+        dd = dadi.Misc.make_data_dict(self.input().path)
 
         # extract the spectrum for the two populations from the dictionary and project down
-        fs = dadi.Spectrum.from_data_dict(dd, pops, prj, polarized=True)
+        fs = dadi.Spectrum.from_data_dict(dd, self.pops, self.prjt, polarized=True)
 
         # save it to a file
         fs.to_file(self.output().path)
 
 
-class DadiOptimizeLogParams(luigi.Task):
+class DadiOptimizeLogParams(SetupTask):
     """
     Optimise the paramaters for the given model
     """
