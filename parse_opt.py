@@ -36,7 +36,7 @@ with open("results.tsv", "w") as results:
     header = ["nu1", "nu2", "T", "m", "Maximum log composite likelihood", "Optimal value of theta", "WARNINGS"]
     results.write("\t".join(header)+"\n")
 
-    for filename in glob.iglob('fsdata/*.opt'):
+    for filename in glob.iglob('fsdata/split_mig/*.opt'):
         with open(filename) as fin:
 
             # reset the log
