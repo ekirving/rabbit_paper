@@ -48,9 +48,7 @@ with open("results.tsv", "w") as results:
                 line = fin.readline().split()
 
             # get the optimal params
-            popt = [eval(num.rstrip(']')) for num in line[3:]]
-
-            popt = [0.13750992, 5.11870398, 2.67132526, 5.90074212]
+            popt = [num.rstrip(']') for num in line[3:]]
 
             # Calculate the best-fit model AFS.
             model = func_ex(popt, ns, pts_l)
