@@ -33,7 +33,7 @@ logger.addHandler(hndl)
 with open("results.tsv", "w") as results:
 
     # write the header
-    header = ["nu1", "nu2", "T", "m", "Maximum log composite likelihood", "Optimal value of theta", "WARNINGS"]
+    header = ["filename", "nu1", "nu2", "T", "m", "Maximum log composite likelihood", "Optimal value of theta", "WARNINGS"]
     results.write("\t".join(header)+"\n")
 
     for filename in glob.iglob('fsdata/split_mig/*.opt'):
@@ -42,13 +42,14 @@ with open("results.tsv", "w") as results:
             # reset the log
             strm.log = []
 
-            line = fin.readline().split()
+            line = fin.readline()
+            while line.split()[0] != "Best-fit":
+                line = fin.readline()
 
-            while line[0] != "Best-fit":
-                line = fin.readline().split()
+            line = line.replace("]", "").split()
 
             # get the optimal params
-            popt = [num.rstrip(']') for num in line[3:]]
+            popt = [eval(num) for num in line[3:]]
 
             # Calculate the best-fit model AFS.
             model = func_ex(popt, ns, pts_l)
@@ -63,5 +64,5 @@ with open("results.tsv", "w") as results:
             # The optimal value of theta given the model.
             theta = dadi.Inference.optimal_sfs_scaling(model, fs)
 
-            data = popt + [ll_model, theta] + strm.log
+            data = [filename] + popt + [ll_model, theta] + strm.log
             results.write("\t".join(str(x).strip("\n") for x in data)+"\n")
