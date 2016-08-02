@@ -191,7 +191,7 @@ class CustomDadiPipeline(luigi.WrapperTask):
 
     def requires(self):
 
-        SiteFrequencySpectrum('all-pops', GENOME)
+        yield SiteFrequencySpectrum('all-pops', GENOME)
 
         # for n in range(0, 10000):
         #     yield DadiOptimizeLogParams('all-pops', 'DOM', 'WLD-FRE', n)
