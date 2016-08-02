@@ -290,7 +290,8 @@ def generate_frequency_spectrum(populations):
 
     # now lets drop all the non variant sites
     for site in list(variants):
-        if len(variants[site]) < 3:
+        # (4 = 2 x observed alleles + 2 dict keys for the ref and ancestral alleles)
+        if len(variants[site]) < 4:
             del variants[site]
 
     # now we've whittled down the sites, lets find the flanking bases
