@@ -1,4 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import luigi, os, os.path, glob, random, re, shutil
 
 # import my custom modules

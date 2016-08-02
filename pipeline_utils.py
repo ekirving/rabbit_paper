@@ -1,4 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import subprocess, datetime, hashlib, os, logging
 from collections import defaultdict
 
@@ -344,3 +346,13 @@ def generate_frequency_spectrum(populations):
         output += 'chr{}\t{}\n'.format(chrom, pos)
 
     return output
+
+
+class LogBuffer(object):
+    """
+    Simple class to act as a buffer for the logging module so we can inspect warnings created by dadi
+    """
+    log = []
+
+    def write(self, data):
+        self.log.append(data)

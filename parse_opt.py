@@ -1,8 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import glob
 import dadi
 
-import logging
-logger = logging.getLogger('Inference')
+from pipeline_utils import *
 
 # load the frequency spectrum
 fs = dadi.Spectrum.from_file("fsdata/DOM_14_WLD-FRE_12.fs")
@@ -19,15 +21,10 @@ lower_bound = [1e-2, 1e-2, 0, 0]
 # Make the extrapolating version of our demographic model function.
 func_ex = dadi.Numerics.make_extrap_log_func(func)
 
-
-class writer(object):
-    log = []
-
-    def write(self, data):
-        self.log.append(data)
-
-strm = writer()
+# buffer the logs created by dadi
+strm = LogBuffer()
 hndl = logging.StreamHandler(strm)
+logger = logging.getLogger('Inference')
 logger.addHandler(hndl)
 
 with open("results.tsv", "w") as results:

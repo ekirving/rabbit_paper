@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -6,11 +9,11 @@ import dadi
 import numpy
 
 # Parse the data file to generate the data dictionary
-dd = dadi.Misc.make_data_dict('./fsdata/all-pops.data')
-fs = dadi.Spectrum.from_data_dict(dd, ['DOM', 'WLD-FRE'], [16, 14], polarized=True)
+# dd = dadi.Misc.make_data_dict('./fsdata/all-pops.data')
+# fs = dadi.Spectrum.from_data_dict(dd, ['DOM', 'WLD-FRE'], [14, 12], polarized=True)
 
 # load the frequency spectrum
-# fs1 = dadi.Spectrum.from_file("fsdata/DOM_WLD-FRE.fs")
+fs = dadi.Spectrum.from_file("fsdata/DOM_14_WLD-FRE_12.fs")
 
 # import pylab
 # # # dadi.Plotting.plot_1d_fs(fs)
@@ -58,7 +61,7 @@ func_ex = dadi.Numerics.make_extrap_log_func(func)
 # # using multiple sets of intial parameters, to be confident you've actually
 # # found the true maximum likelihood parameters.
 # # print('Beginning optimization ************************************************')
-# popt = dadi.Inference.optimize_log(p0, data, func_ex, pts_l,
+# popt = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
 #                                    lower_bound=lower_bound,
 #                                    upper_bound=upper_bound,
 #                                    verbose=len(p0), maxiter=20)
@@ -70,8 +73,19 @@ func_ex = dadi.Numerics.make_extrap_log_func(func)
 
 # popt = [0.01083985, 0.14224231, 0.0041322, 0.1030695]
 # popt = [  9.94154474,  76.55583649,   1.4592578,    1.69040534]
-popt = [ 0.08603252,  4.29352367,  1.73531144,  9.85191353]
+# popt = [ 0.08603252,  4.29352367,  1.73531144,  9.85191353]
 # popt = [ 0.13750992,  5.11870398,  2.67132526,  5.90074212]
+
+# popt =  [ 0.13750992,  5.11870398,  2.67132526,  5.90074212]
+# Optimal value of theta: 13878.3167783
+
+# popt =  [ 0.08603252,  4.29352367,  1.73531144,  9.85191353]
+# Optimal value of theta: 20809.9945798
+
+# popt =  [  3.63166477e-03,   2.37203300e+00,   1.70031583e-03,   6.30281969e+00]
+
+# lowest ll for unmasked data
+popt = [0.03917849, 0.57016838, 0.02485432, 9.98100921]
 
 print('Best-fit parameters: {0}'.format(popt))
 
@@ -90,8 +104,8 @@ dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=3, fig_num=1)
 fig.savefig('test.pdf')
 plt.close(fig)
 
-# estimate of mutation rate... probably totally wrong
-mu = 4e-8
+# estimate of rabbitmutation rate
+mu = 1.74e-9 # μ
 
 # theta=4*Ne*mu
 # Ne=theta/(4*mu)
@@ -109,7 +123,7 @@ N2 = popt[2] * Ne
 # T=2*Ne*t
 # t=T/(2*Ne)
 # This the time in generations
-time = popt[3] * (2 * Ne)
+time = popt[3] / (2 * Ne)
 
 print "mu={}".format(mu)
 print "Ne={}".format(Ne)
