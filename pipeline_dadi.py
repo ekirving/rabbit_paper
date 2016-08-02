@@ -54,12 +54,12 @@ class DadiSpectrum(luigi.Task):
         return SiteFrequencySpectrum(self.group, GENOME)
 
     def output(self):
-        return luigi.LocalTarget("fsdata/{0}_{1}.fs".format(self.pop1, self.pop2))
+        return luigi.LocalTarget("fsdata/{0}_{1}_{2}.fs".format(self.group, self.pop1, self.pop2))
 
     def run(self):
 
         # parse the data file to generate the data dictionary
-        dd = dadi.Misc.make_data_dict("fsdata/{0}.data".format(self.group))
+        dd = dadi.Misc.make_data_dict(self.input().path)
 
         # get the two populations
         pops = [self.pop1, self.pop2]
@@ -78,13 +78,14 @@ class DadiOptimizeLogParams(luigi.Task):
     """
     Optimise the paramaters for the given model
     """
+    group = luigi.Parameter()
     pop1 = luigi.Parameter()
     pop2 = luigi.Parameter()
     model = luigi.Parameter(default="split_mig")
     n = luigi.IntParameter()
 
     def requires(self):
-        return DadiSpectrum('all-pops', self.pop1, self.pop2)
+        return DadiSpectrum(self.group, self.pop1, self.pop2)
 
     def output(self):
         return luigi.LocalTarget("pdf/dadi.{0}_{1}_{2}_{3}.fs.pdf".format(self.pop1, self.pop2, self.model, self.n))
@@ -190,5 +191,7 @@ class CustomDadiPipeline(luigi.WrapperTask):
 
     def requires(self):
 
-        for n in range(0, 10000):
-            yield DadiOptimizeLogParams('DOM', 'WLD-FRE', n)
+        SiteFrequencySpectrum('all-pops', GENOME)
+
+        # for n in range(0, 10000):
+        #     yield DadiOptimizeLogParams('all-pops', 'DOM', 'WLD-FRE', n)
