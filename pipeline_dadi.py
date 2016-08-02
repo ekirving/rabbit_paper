@@ -11,10 +11,9 @@ from pipeline_gatk import *
 from pipeline_utils import *
 
 # buffer the logs created by dadi so we can inspect them
-strm = LogBuffer()
-hndl = logging.StreamHandler(strm)
+log_buffer = LogBuffer()
 logger = logging.getLogger('Inference')
-logger.addHandler(hndl)
+logger.addHandler(logging.StreamHandler(log_buffer))
 
 class SiteFrequencySpectrum(luigi.Task):
     """
@@ -81,48 +80,42 @@ class DadiOptimizeLogParams(luigi.Task):
     """
     pop1 = luigi.Parameter()
     pop2 = luigi.Parameter()
-    # model = luigi.Parameter()
+    model = luigi.Parameter(default="split_mig")
     n = luigi.IntParameter()
 
     def requires(self):
         return DadiSpectrum('all-pops', self.pop1, self.pop2)
 
     def output(self):
-        return luigi.LocalTarget("pdf/dadi.{0}_{1}_{2}.fs.pdf".format(self.pop1, self.pop2, self.n))
+        return luigi.LocalTarget("pdf/dadi.{0}_{1}_{2}_{3}.fs.pdf".format(self.pop1, self.pop2, self.model, self.n))
 
     def run(self):
 
-        # reset the buffered log (just in case)
-        strm.log = []
+        # reset the log buffer (just in case)
+        log_buffer.log = []
 
         # load the frequency spectrum
-        fs = dadi.Spectrum.from_file("fsdata/{0}_{1}.fs".format(self.pop1, self.pop2))
+        fs = dadi.Spectrum.from_file(self.input().path)
 
-        # TODO what effect do these have
+        # TODO test the effect of narrowing the grid
         # These are the grid point settings will use for extrapolation.
         pts_l = [10, 50, 60]
 
-        # TODO make model a param
-        func = dadi.Demographics2D.split_mig
+        # get the demographic model to test
+        func = getattr(dadi.Demographics2D, self.model)
 
-        model_params = ["nu1",  # nu1: Size of population 1 after split.
-                        "nu2",  # nu2: Size of population 2 after split.
-                        "T",    # T: Time in the past of split (in units of 2*Na generations)
-                        "m"]    # m: Migration rate between populations (2*Na*m)
+        # nu1: Size of population 1 after split.
+        # nu2: Size of population 2 after split.
+        # T: Time in the past of split (in units of 2*Na generations)
+        # m: Migration rate between populations (2*Na*m)
 
+        # TODO parameterise these
         # The upper_bound and lower_bound lists are for use in optimization.
         upper_bound = [100, 100, 3, 10]
         lower_bound = [1e-4, 1e-4, 0, 0]
 
         # randomly generated starting values within the bounding ranges
-        p0 = [random.uniform(lower_bound[i], upper_bound[i]) for i in range(0, len(model_params))]
-
-        # This is our initial guess for the parameters, which is somewhat arbitrary.
-        # p0 = [2, 0.1, 0.2, 0.2]
-
-        # Perturb our parameters before optimization. This does so by taking each
-        # parameter a up to a factor of two up or down.
-        # p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound, lower_bound=lower_bound)
+        p0 = [random.uniform(lower_bound[i], upper_bound[i]) for i in range(0, len(upper_bound))]
 
         # Make the extrapolating version of our demographic model function.
         func_ex = dadi.Numerics.make_extrap_log_func(func)
@@ -143,17 +136,17 @@ class DadiOptimizeLogParams(luigi.Task):
         theta = dadi.Inference.optimal_sfs_scaling(model, fs)
 
         # collate all the data for logging
-        data = [self.pop1, self.pop2, self.n] + popt + [ll_model, theta] + strm.log
+        data = [self.pop1, self.pop2, self.n] + popt + [ll_model, theta] + log_buffer.log
 
         # add an entry to to log
-        with open("fsdata/{0}_{1}_{2}.tsv".format("split_mig", self.pop1, self.pop2), "a") as tsv:
+        with open("fsdata/{0}_{1}_{2}_{3}.tsv".format(self.pop1, self.pop2, self.model), "a") as tsv:
             tsv.write("\t".join(str(x).strip("\n") for x in data) + "\n")
 
-        # # save the figure as a PDF
-        # fig = plt.figure(1)
-        # dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=3, fig_num=1)
-        # fig.savefig(self.output()[1].path)
-        # plt.close(fig)
+        # save the figure as a PDF
+        fig = plt.figure(1)
+        dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=3, fig_num=1)
+        fig.savefig(self.output()[1].path)
+        plt.close(fig)
 
         # # estimate of mutation rate... probably totally wrong
         # mu = 1.25e-8

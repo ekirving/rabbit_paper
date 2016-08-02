@@ -100,7 +100,7 @@ print('Optimal value of theta: {0}'.format(theta))
 
 # plot the figure
 fig = plt.figure(1)
-dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=3, fig_num=1)
+dadi.Plotting.plot_2d_comp_multinom(model, fs, vmin=1, resid_range=30, fig_num=1)
 fig.savefig('test.pdf')
 plt.close(fig)
 

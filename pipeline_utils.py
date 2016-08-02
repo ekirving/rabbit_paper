@@ -269,8 +269,8 @@ def generate_frequency_spectrum(populations):
     # delete all the sites that don't conform to our requirements
     for site in list(variants):
 
-        # remove all non variant and pollyallelic sites (2 alleles + 1 reference = 3)
-        if len(variants[site]) != 3:
+        # remove all pollyallelic sites (3 = 2 x observed alleles + 1 dict key for the ref allele)
+        if len(variants[site]) > 3:
             del variants[site]
             continue
 
@@ -284,6 +284,14 @@ def generate_frequency_spectrum(populations):
 
         # remember the ancestral allele
         variants[site]['alt'] = ancestral[0]
+
+    # record the number of viable sites (we need this for scaling theta in the output from dadi)
+    viable_sites =  len(variants)
+
+    # now lets drop all the non variant sites
+    for site in list(variants):
+        if len(variants[site]) < 3:
+            del variants[site]
 
     # now we've whittled down the sites, lets find the flanking bases
     find_flanking_bases(variants)
@@ -299,7 +307,8 @@ def generate_frequency_spectrum(populations):
     pop_list.remove('OUT')
 
     # start composing the output file
-    output = 'Rabbit\tHare\t'
+    output = "# Number of viable sites: {}\n".format(viable_sites)
+    output += 'Rabbit\tHare\t'
 
     for num in [1,2]:
         output += 'Allele{}\t'.format(num)
