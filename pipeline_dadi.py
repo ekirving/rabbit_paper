@@ -6,6 +6,7 @@ import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import luigi, dadi, numpy, pylab, random
 import pickle
+import csv
 
 # import the custom pipelines
 from pipeline_gatk import *
@@ -205,7 +206,7 @@ class DadiModelOptimizeParams(luigi.Task):
         return DadiSpectrum(self.group, self.pop1, self.pop2)
 
     def output(self):
-        return luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}.opt".format(self.pop1, self.pop2, self.model, self.n))
+        return luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.opt".format(self.group, self.pop1, self.pop2, self.model, self.n))
 
     def run(self):
 
@@ -294,6 +295,7 @@ class DadiModelMaximumLikelihood(luigi.Task):
     pop2 = luigi.Parameter()
 
     model = luigi.Parameter()
+    param_names = luigi.ListParameter()
     grid_size = luigi.ListParameter()
     upper_bound = luigi.ListParameter()
     lower_bound = luigi.ListParameter()
@@ -308,7 +310,8 @@ class DadiModelMaximumLikelihood(luigi.Task):
                                           self.lower_bound, param_start, n)
 
     def output(self):
-        return luigi.LocalTarget("pdf/dadi.{0}_{1}_{2}.pdf".format(self.pop1, self.pop2, self.model))
+        return [luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}.csv".format(self.group, self.pop1, self.pop2, self.model)),
+                luigi.LocalTarget("fsdata/dadi.{0}_{1}_{2}_{3}.pdf".format(self.group, self.pop1, self.pop2, self.model))]
 
     def run(self):
 
@@ -322,6 +325,14 @@ class DadiModelMaximumLikelihood(luigi.Task):
 
         # sort the params (largest ll_model first)
         p_best.sort(reverse=True)
+
+        header = ["likelihood", "theta"] + list(self.param_names)
+
+        # dump all the data to csv
+        with self.output()[0].open("w") as fout:
+            writer = csv.writer(fout)
+            writer.writerow(header)
+            writer.writerows(p_best)
 
         # get the params with the maximum log likelihood, from all ~1e6 iterations
         p_opt = p_best[0][2:]
@@ -342,7 +353,7 @@ class DadiModelMaximumLikelihood(luigi.Task):
         # plot the figure
         fig = plt.figure(1)
         dadi.Plotting.plot_2d_comp_multinom(model, fs, fig_num=1)
-        fig.savefig(self.output().path)
+        fig.savefig(self.output()[1].path)
         plt.close(fig)
 
 
@@ -354,16 +365,32 @@ class CustomDadiPipeline(luigi.WrapperTask):
     def requires(self):
 
         model = 'split_mig'
-        grid_size = [10,50,60]
+        param_names = ['nu1',  # Size of population 1 after split.
+                       'nu2',  # Size of population 2 after split.
+                       'T',    # Time in the past of split (in units of 2*Na generations)
+                       'm']    # Migration rate between populations (2*Na*m)
+
+        grid_size = [10, 50, 60]
         upper_bound = [100, 100, 3, 10]
         lower_bound = [1e-2, 1e-2, 0, 0]
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, grid_size, upper_bound, lower_bound)
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, param_names, grid_size, upper_bound, lower_bound)
 
-        # IM model
-        # 1: fix S, m12, m21
-        # 2: fix S
-        # 3: all all to to vary
+        model = 'IM'
+        param_names = ['s',    # Size of pop 1 after split. (Pop 2 has size 1-s.)
+                       'nu1',  # Final size of pop 1.
+                       'nu2',  # Final size of pop 2.
+                       'T',    # Time in the past of split (in units of 2*Na generations)
+                       'm12',  # Migration from pop 2 to pop 1 (2*Na*m12)
+                       'm21']  # Migration from pop 1 to pop 2
+
+        grid_size = [10, 50, 60]
+
+        scenario = "all-vary"
+        upper_bound = [0.9999, 100, 100, 3, 10, 10]
+        lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
+
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, param_names, grid_size, upper_bound, lower_bound, scenario)
 
         # yield SiteFrequencySpectrum('all-pops', GENOME)
 
