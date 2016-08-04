@@ -195,6 +195,7 @@ class DadiModelOptimizeParams(luigi.Task):
     pop2 = luigi.Parameter()
 
     model = luigi.Parameter()
+    scenario = luigi.Parameter()
     grid_size = luigi.ListParameter()
     upper_bound = luigi.ListParameter()
     lower_bound = luigi.ListParameter()
@@ -206,7 +207,7 @@ class DadiModelOptimizeParams(luigi.Task):
         return DadiSpectrum(self.group, self.pop1, self.pop2)
 
     def output(self):
-        return luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.opt".format(self.group, self.pop1, self.pop2, self.model, self.n))
+        return luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}_{5}.opt".format(self.group, self.pop1, self.pop2, self.model, self.scenario, self.n))
 
     def run(self):
 
@@ -295,6 +296,7 @@ class DadiModelMaximumLikelihood(luigi.Task):
     pop2 = luigi.Parameter()
 
     model = luigi.Parameter()
+    scenario = luigi.Parameter()
     param_names = luigi.ListParameter()
     grid_size = luigi.ListParameter()
     upper_bound = luigi.ListParameter()
@@ -306,12 +308,12 @@ class DadiModelMaximumLikelihood(luigi.Task):
             param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i]) for i in range(0, len(self.upper_bound))]
 
             # find the optimal params
-            yield DadiModelOptimizeParams(self.group, self.pop1, self.pop2, self.model, self.grid_size, self.upper_bound,
+            yield DadiModelOptimizeParams(self.group, self.pop1, self.pop2, self.model, self.scenario, self.grid_size, self.upper_bound,
                                           self.lower_bound, param_start, n)
 
     def output(self):
-        return [luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}.csv".format(self.group, self.pop1, self.pop2, self.model)),
-                luigi.LocalTarget("fsdata/dadi.{0}_{1}_{2}_{3}.pdf".format(self.group, self.pop1, self.pop2, self.model))]
+        return [luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.csv".format(self.group, self.pop1, self.pop2, self.model, self.scenario)),
+                luigi.LocalTarget("fsdata/dadi.{0}_{1}_{2}_{3}_{4}.pdf".format(self.group, self.pop1, self.pop2, self.model, self.scenario))]
 
     def run(self):
 
@@ -364,6 +366,8 @@ class CustomDadiPipeline(luigi.WrapperTask):
 
     def requires(self):
 
+        # --------------------------------------------------------------------------------------------------------------
+
         model = 'split_mig'
         param_names = ['nu1',  # Size of population 1 after split.
                        'nu2',  # Size of population 2 after split.
@@ -371,10 +375,15 @@ class CustomDadiPipeline(luigi.WrapperTask):
                        'm']    # Migration rate between populations (2*Na*m)
 
         grid_size = [10, 50, 60]
+
+        scenario = "best-fit"
         upper_bound = [100, 100, 3, 10]
         lower_bound = [1e-2, 1e-2, 0, 0]
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, param_names, grid_size, upper_bound, lower_bound)
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
+                                         upper_bound, lower_bound)
+
+        # --------------------------------------------------------------------------------------------------------------
 
         model = 'IM'
         param_names = ['s',    # Size of pop 1 after split. (Pop 2 has size 1-s.)
@@ -384,13 +393,41 @@ class CustomDadiPipeline(luigi.WrapperTask):
                        'm12',  # Migration from pop 2 to pop 1 (2*Na*m12)
                        'm21']  # Migration from pop 1 to pop 2
 
-        grid_size = [10, 50, 60]
-
-        scenario = "all-vary"
+        # -------------------
+        scenario = "best-fit"
         upper_bound = [0.9999, 100, 100, 3, 10, 10]
         lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, param_names, grid_size, upper_bound, lower_bound, scenario)
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
+                                         upper_bound, lower_bound)
+
+        # -------------------
+        # now lets run the model where we fix certain params, so we can do a direct comparison between them...
+        # simulate a simple model, by fixing S
+        scenario = "fixed-S"
+        upper_bound = [0.5, 100, 100, 3, 10, 10]
+        lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
+
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
+                                         upper_bound, lower_bound)
+
+        # -------------------
+        # simulate a simple model, by fixing S, m12, m21
+        scenario = "fixed-S-m12-m21"
+        upper_bound = [0.5, 100, 100, 3, 0, 0]
+        lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
+
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
+                                         upper_bound, lower_bound)
+
+        # -------------------
+        # simulate a simple model, by fixing m12, m21
+        scenario = "fixed-m12-m21"
+        upper_bound = [0.9999, 100, 100, 3, 0, 0]
+        lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
+
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
+                                         upper_bound, lower_bound)
 
         # yield SiteFrequencySpectrum('all-pops', GENOME)
 
