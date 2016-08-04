@@ -5,55 +5,92 @@ import dadi
 
 
 # Load the data
-data = dadi.Spectrum.from_file('fsdata/DOM_14_WLD-FRE_12.fs')
-ns = data.sample_sizes
+fs = dadi.Spectrum.from_file('fsdata/DOM_14_WLD-FRE_12.fs')
+ns = fs.sample_sizes
 
 # These are the grid point settings will use for extrapolation.
 pts_l = [40,50,60]
 
-# The Demographics1D and Demographics2D modules contain a few simple models,
-# mostly as examples. We could use one of those.
-func = dadi.Demographics2D.split_mig
-
+# Isolation-with-migration model with exponential pop growth.
+func = dadi.Demographics2D.IM
 
 # The upper_bound and lower_bound lists are for use in optimization.
 # Occasionally the optimizer will try wacky parameter values. We in particular
 # want to exclude values with very long times, very small population sizes, or
 # very high migration rates, as they will take a long time to evaluate.
-# params = (nu1,nu2,T,m)
-upper_bound = [100, 100, 3, 10]
-lower_bound = [1e-2, 1e-2, 0, 0]
+
+upper_bound = [0.9999, 100,  100,  3, 10, 10]
+lower_bound = [0.0001, 1e-2, 1e-2, 0,  0,  0]
 
 # This is our initial guess for the parameters, which is somewhat arbitrary.
-p0 = [2,0.1,0.2,0.2]
+p0 = [0.5,  # s: Size of pop 1 after split. (Pop 2 has size 1-s.)
+      0.1,  # nu1: Final size of pop 1.
+      0.1,  # nu2: Final size of pop 2.
+      0.2,  # T: Time in the past of split (in units of 2*Na generations)
+      0.2,  # m12: Migration from pop 2 to pop 1 (2*Na*m12)
+      0.2]  # m21: Migration from pop 1 to pop 2
+
+p0 = [ 0.0537521  ,  0.0100264  ,  0.0684193  ,  0.0068241  ,  0.0434472  ,  0.0262704  ] # -2257.8
+p0 = [ 0.0491897  ,  0.0100047  ,  0.130444   ,  0.00764804 ,  0.0424375  ,  0.0175239  ] # -1986.96
+p0 = [ 0.0367591  ,  0.0100035  ,  0.168718   ,  0.00690335 ,  0.0250734  ,  0.0289296  ] # -1924.57
+p0 = [ 0.0303529  ,  0.0106935  ,  2.60008    ,  0.00660695 ,  1.93043e-06,  0.000138871] # -1866.61
+p0 = [ 0.0141832  ,  0.0100017  ,  0.482211   ,  0.00466663 ,  6.20664e-07,  0.000143181] # -1835.16
+p0 = [ 0.00865567 ,  0.0100043  ,  0.264837   ,  0.00364864 ,  1.23579e-06,  9.23756e-05] # -1821.73
+p0 = [ 0.00365723 ,  0.0100486  ,  0.385703   ,  0.00226085 ,  1.29317e-06,  5.33581e-05] # -1796.36
+
+verbose = True
 
 # Make the extrapolating version of our demographic model function.
 func_ex = dadi.Numerics.make_extrap_log_func(func)
 
-# # Perturb our parameters before optimization. This does so by taking each
-# # parameter a up to a factor of two up or down.
-p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound,
-                              lower_bound=lower_bound)
+# make a list of the optimal params
+popt = []
 
-# Do the optimization. By default we assume that theta is a free parameter,
-# since it's trivial to find given the other parameters. If you want to fix
-# theta, add a multinom=False to the call.
-# The maxiter argument restricts how long the optimizer will run. For real
-# runs, you will want to set this value higher (at least 10), to encourage
-# better convergence. You will also want to run optimization several times
-# using multiple sets of intial parameters, to be confident you've actually
-# found the true maximum likelihood parameters.
-print('Beginning optimization ************************************************')
-popt = dadi.Inference.optimize_log(p0, data, func_ex, pts_l,
-                                   lower_bound=lower_bound,
-                                   upper_bound=upper_bound,
-                                   verbose=len(p0), maxiter=3)
-# The verbose argument controls how often progress of the optimizer should be
-# printed. It's useful to keep track of optimization process.
-print('Finshed optimization **************************************************')
+for i in range(0, 3):
 
-    #
-    #
+    # Perturb our parameters before optimization. This does so by taking each
+    # parameter a up to a factor of two up or down.
+    p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound,
+                                  lower_bound=lower_bound)
+
+    if verbose : print('Beginning optimization ************************************************')
+
+    # do the optimization...
+    p1 = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
+                                     lower_bound=lower_bound,
+                                     upper_bound=upper_bound,
+                                     verbose=20 if verbose else 0,
+                                     maxiter=100)
+
+    if verbose: print('Finshed optimization **************************************************')
+
+    # Calculate the best-fit model AFS.
+    model = func_ex(p1, ns, pts_l)
+
+    # Likelihood of the data given the model AFS.
+    ll_model = dadi.Inference.ll_multinom(model, fs)
+
+    # The optimal value of theta given the model.
+    theta = dadi.Inference.optimal_sfs_scaling(model, fs)
+
+    if verbose:
+        print('Maximum log composite likelihood: {0}'.format(ll_model))
+        print('Optimal value of theta: {0}'.format(theta))
+
+    # record the best fitting params for this run
+    popt.append([ll_model, theta] + list(p1))
+
+    # sort the params (largest ll_model first)
+    popt.sort(reverse=True)
+
+    # run the optimisation again, starting from the best fit we've seen so far
+    p0 = popt[0][2:]
+
+# display the optimal params
+print popt
+
+
+
     # # These are the actual best-fit model parameters, which we found through
     # # longer optimizations and confirmed by running multiple optimizations.
     # # We'll work with them through the rest of this script.
