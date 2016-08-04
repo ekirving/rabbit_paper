@@ -262,10 +262,8 @@ class DadiModelOptimizeParams(luigi.Task):
             warnings = " ".join(log_buffer.log)
 
             # we only care about non-masked data
-            if "Model is masked" in warnings:
-                print(warnings)
+            if "Model is masked" not in warnings:
 
-            else:
                 print('Maximum log composite likelihood: {0}'.format(ll_model))
                 print('Optimal value of theta: {0}'.format(theta))
 
@@ -360,9 +358,12 @@ class CustomDadiPipeline(luigi.WrapperTask):
         upper_bound = [100, 100, 3, 10]
         lower_bound = [1e-2, 1e-2, 0, 0]
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE')
+        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, grid_size, upper_bound, lower_bound)
 
-
+        # IM model
+        # 1: fix S, m12, m21
+        # 2: fix S
+        # 3: all all to to vary
 
         # yield SiteFrequencySpectrum('all-pops', GENOME)
 
