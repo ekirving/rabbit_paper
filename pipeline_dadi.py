@@ -307,13 +307,22 @@ class DadiModelMaximumLikelihood(luigi.Task):
             # randomly generate starting params, within the bounding ranges
             param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i]) for i in range(0, len(self.upper_bound))]
 
+            # # TODO remove when done testing...
+            # # split mig best fit
+            # if "split_mig" in self.model:
+            #     param_start = [0.03917849, 0.57016838, 0.02485432, 9.98100921]
+            #
+            # # IM best fit
+            # if "IM" in self.model:
+            #     param_start = [0.00365723, 0.0100486, 0.385703, 0.00226085, 1.29317e-06, 5.33581e-05] # -1796.36
+
             # find the optimal params
             yield DadiModelOptimizeParams(self.group, self.pop1, self.pop2, self.model, self.scenario, self.grid_size, self.upper_bound,
                                           self.lower_bound, param_start, n)
 
     def output(self):
         return [luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.csv".format(self.group, self.pop1, self.pop2, self.model, self.scenario)),
-                luigi.LocalTarget("fsdata/dadi.{0}_{1}_{2}_{3}_{4}.pdf".format(self.group, self.pop1, self.pop2, self.model, self.scenario))]
+                luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.pdf".format(self.group, self.pop1, self.pop2, self.model, self.scenario))]
 
     def run(self):
 
@@ -366,70 +375,72 @@ class CustomDadiPipeline(luigi.WrapperTask):
 
     def requires(self):
 
-        # --------------------------------------------------------------------------------------------------------------
+        # run the whole analysis for 3 sets of pairwise comparisons
+        for pop1, pop2 in [('DOM',     'WLD-FRE'),
+                           ('WLD-FRE', 'WLD-IB2'),
+                           ('WLD-IB2', 'WLD-IB1')]:
 
-        model = 'split_mig'
-        param_names = ['nu1',  # Size of population 1 after split.
-                       'nu2',  # Size of population 2 after split.
-                       'T',    # Time in the past of split (in units of 2*Na generations)
-                       'm']    # Migration rate between populations (2*Na*m)
+            # TODO experiment to see how changing this effects run time and model fitting
+            grid_size = [10, 50, 60]
 
-        grid_size = [10, 50, 60]
+            # ----------------------------------------------------------------------------------------------------------
 
-        scenario = "best-fit"
-        upper_bound = [100, 100, 3, 10]
-        lower_bound = [1e-2, 1e-2, 0, 0]
+            model = 'split_mig'
+            param_names = ['nu1',  # Size of population 1 after split.
+                           'nu2',  # Size of population 2 after split.
+                           'T',    # Time in the past of split (in units of 2*Na generations)
+                           'm']    # Migration rate between populations (2*Na*m)
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
-                                         upper_bound, lower_bound)
+            scenario = "best-fit"
+            upper_bound = [100, 100, 3, 10]
+            lower_bound = [1e-2, 1e-2, 0, 0]
 
-        # --------------------------------------------------------------------------------------------------------------
+            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound)
 
-        model = 'IM'
-        param_names = ['s',    # Size of pop 1 after split. (Pop 2 has size 1-s.)
-                       'nu1',  # Final size of pop 1.
-                       'nu2',  # Final size of pop 2.
-                       'T',    # Time in the past of split (in units of 2*Na generations)
-                       'm12',  # Migration from pop 2 to pop 1 (2*Na*m12)
-                       'm21']  # Migration from pop 1 to pop 2
+            # ----------------------------------------------------------------------------------------------------------
 
-        # -------------------
-        scenario = "best-fit"
-        upper_bound = [0.9999, 100, 100, 3, 10, 10]
-        lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
+            model = 'IM'
+            param_names = ['s',    # Size of pop 1 after split. (Pop 2 has size 1-s.)
+                           'nu1',  # Final size of pop 1.
+                           'nu2',  # Final size of pop 2.
+                           'T',    # Time in the past of split (in units of 2*Na generations)
+                           'm12',  # Migration from pop 2 to pop 1 (2*Na*m12)
+                           'm21']  # Migration from pop 1 to pop 2
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
-                                         upper_bound, lower_bound)
+            # -------------------
+            scenario = "best-fit"
+            upper_bound = [0.9999, 100, 100, 3, 10, 10]
+            lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
 
-        # -------------------
-        # now lets run the model where we fix certain params, so we can do a direct comparison between them...
-        # simulate a simple model, by fixing S
-        scenario = "fixed-S"
-        upper_bound = [0.5, 100, 100, 3, 10, 10]
-        lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
+            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound)
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
-                                         upper_bound, lower_bound)
+            # -------------------
+            # now lets run the model where we fix certain params, so we can do a direct comparison between them...
+            # simulate a simple model, by fixing S
+            scenario = "fixed-S"
+            upper_bound = [0.5, 100, 100, 3, 10, 10]
+            lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
 
-        # -------------------
-        # simulate a simple model, by fixing S, m12, m21
-        scenario = "fixed-S-m12-m21"
-        upper_bound = [0.5, 100, 100, 3, 0, 0]
-        lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
+            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound)
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
-                                         upper_bound, lower_bound)
+            # -------------------
+            # simulate a simple model, by fixing S, m12, m21
+            scenario = "fixed-S-m12-m21"
+            upper_bound = [0.5, 100, 100, 3, 0, 0]
+            lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
 
-        # -------------------
-        # simulate a simple model, by fixing m12, m21
-        scenario = "fixed-m12-m21"
-        upper_bound = [0.9999, 100, 100, 3, 0, 0]
-        lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
+            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound)
 
-        yield DadiModelMaximumLikelihood('all-pops', 'DOM', 'WLD-FRE', model, scenario, param_names, grid_size,
-                                         upper_bound, lower_bound)
+            # -------------------
+            # simulate a simple model, by fixing m12, m21
+            scenario = "fixed-m12-m21"
+            upper_bound = [0.9999, 100, 100, 3, 0, 0]
+            lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
 
-        # yield SiteFrequencySpectrum('all-pops', GENOME)
+            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound)
 
-        # for n in range(0, 10000):
-        #     yield DadiOptimizeLogParams('all-pops', 'DOM', 'WLD-FRE', n)
