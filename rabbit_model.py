@@ -36,14 +36,13 @@ func = dadi.Demographics2D.split_mig
 # Occasionally the optimizer will try wacky parameter values. We in particular
 # want to exclude values with very long times, very small population sizes, or
 # very high migration rates, as they will take a long time to evaluate.
-# Parameters are: (nu1F, nu2B, nu2F, m, Tp, T)
-# params = (nu1,nu2,T,m)
 
-upper_bound = [100, 100, 3, 10]
-lower_bound = [1e-2, 1e-2, 0, 0]
+# params = (nu1,nu2,T,m)
+upper_bound = [100,  100,  3, 10]
+lower_bound = [1e-2, 1e-2, 0,  0]
 
 # This is our initial guess for the parameters, which is somewhat arbitrary.
-p0 = [2,0.1,0.2,0.2]
+p0 = [2, 0.1, 0.2, 0.2]
 
 # Make the extrapolating version of our demographic model function.
 func_ex = dadi.Numerics.make_extrap_log_func(func)
