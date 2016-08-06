@@ -151,7 +151,7 @@ def extract_variant_sites(population, samples, variants):
                 continue
 
             # resolve empty list issue
-            alt = ref if not alt_list else alt[0]
+            alt = ref if not alt_list else alt_list[0]
 
             # skip indels
             if len(ref) > 1 or len(alt) > 1:
