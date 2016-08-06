@@ -232,8 +232,8 @@ def find_flanking_bases(variants):
             locus = line.split()
 
             # get the positions of the adjacent flanks
-            flank1 = (locus[CHROM], int(locus[POS]) - 1) # right flank
-            flank2 = (locus[CHROM], int(locus[POS]) + 1) # left flank
+            flank1 = (locus[CHROM], int(locus[POS]) - 1) # right flank of previous site
+            flank2 = (locus[CHROM], int(locus[POS]) + 1) # left flank of subsequent site
 
             ref = locus[REF]
             alt = locus[ALT].replace('<NON_REF>', ref)

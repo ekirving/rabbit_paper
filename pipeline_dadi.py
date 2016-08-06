@@ -67,7 +67,7 @@ class DadiSpectrum(luigi.Task):
         pops = [self.pop1, self.pop2]
 
         # project each population down by one sample to allow for a little missing coverage
-        prj = [(len(POPULATIONS[pop]) - 1)* 2 for pop in pops]
+        prj = [(len(POPULATIONS[pop]) - 1) * 2 for pop in pops]
 
         # extract the spectrum for the two populations from the dictionary and project down
         fs = dadi.Spectrum.from_data_dict(dd, pops, prj, polarized=True)
@@ -154,9 +154,11 @@ class DadiSpectrum(luigi.Task):
 #         # # estimate of mutation rate... probably totally wrong
 #         # mu = 1.25e-8
 #         # mu = 1e-3         # rate for microsatelites in rabbits (Surridge et al., 1999)
-#         # mu = 1.622e-9     # rate for rabbits based on assumed Oryctolagus-Lepus split time of 11.8 MYA (Carneiro et al 2009:596)
+#         # mu = 1.622e-9     # rate for rabbits based on assumed Oryctolagus-Lepus split time of 11.8 MYA
+#                             #  (Carneiro et al 2009:596)
 #         # mu = 1.74e-9      # (Carneiro et al., 2011)
-#         # mu = 2.02-2.35e-9 # mutations per site per generation, which is similar to but slightly lower than estimates in mice (3.4-4.1e-9; (Carneiro et al., 2012)
+#         # mu = 2.02-2.35e-9 # mutations per site per generation, which is similar to but slightly lower than estimates
+#                             #  in mice (3.4-4.1e-9; (Carneiro et al., 2012)
 #         # mu = 1.18e-6      # (Sousa et al., 2013)  μ
 #
 #         # # theta=4*Ne*mu
@@ -207,7 +209,8 @@ class DadiModelOptimizeParams(luigi.Task):
         return DadiSpectrum(self.group, self.pop1, self.pop2)
 
     def output(self):
-        return luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}_{5}.opt".format(self.group, self.pop1, self.pop2, self.model, self.scenario, self.n))
+        return luigi.LocalTarget("fsdata/opt/{0}_{1}_{2}_{3}_{4}_{5}.opt".format(self.group, self.pop1, self.pop2,
+                                                                                 self.model, self.scenario, self.n))
 
     def run(self):
 
@@ -305,7 +308,8 @@ class DadiModelMaximumLikelihood(luigi.Task):
     def requires(self):
         for n in range(0, DADI_MAX_ITER):
             # randomly generate starting params, within the bounding ranges
-            param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i]) for i in range(0, len(self.upper_bound))]
+            param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i])
+                           for i in range(0, len(self.upper_bound))]
 
             # # TODO remove when done testing...
             # # split mig best fit
@@ -317,12 +321,14 @@ class DadiModelMaximumLikelihood(luigi.Task):
             #     param_start = [0.00365723, 0.0100486, 0.385703, 0.00226085, 1.29317e-06, 5.33581e-05] # -1796.36
 
             # find the optimal params
-            yield DadiModelOptimizeParams(self.group, self.pop1, self.pop2, self.model, self.scenario, self.grid_size, self.upper_bound,
-                                          self.lower_bound, param_start, n)
+            yield DadiModelOptimizeParams(self.group, self.pop1, self.pop2, self.model, self.scenario, self.grid_size,
+                                          self.upper_bound, self.lower_bound, param_start, n)
 
     def output(self):
-        return [luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.csv".format(self.group, self.pop1, self.pop2, self.model, self.scenario)),
-                luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.pdf".format(self.group, self.pop1, self.pop2, self.model, self.scenario))]
+        return [luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.csv".format(self.group, self.pop1, self.pop2, self.model,
+                                                                          self.scenario)),
+                luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.pdf".format(self.group, self.pop1, self.pop2, self.model,
+                                                                          self.scenario))]
 
     def run(self):
 
