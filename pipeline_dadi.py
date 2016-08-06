@@ -199,15 +199,6 @@ class DadiModelMaximumLikelihood(luigi.Task):
             param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i])
                            for i in range(0, len(self.upper_bound))]
 
-            # # TODO remove when done testing...
-            # # split mig best fit
-            # if "split_mig" in self.model:
-            #     param_start = [0.03917849, 0.57016838, 0.02485432, 9.98100921]
-            #
-            # # IM best fit
-            # if "IM" in self.model:
-            #     param_start = [0.00365723, 0.0100486, 0.385703, 0.00226085, 1.29317e-06, 5.33581e-05] # -1796.36
-
             # find the optimal params
             yield DadiModelOptimizeParams(self.group, self.pop1, self.pop2, self.model, self.scenario, self.grid_size,
                                           self.upper_bound, self.lower_bound, param_start, n)
