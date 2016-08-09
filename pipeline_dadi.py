@@ -128,7 +128,8 @@ class DadiModelOptimizeParams(luigi.Task):
                                                  upper_bound=self.upper_bound,
                                                  lower_bound=self.lower_bound)
 
-            print('Beginning optimization: {} ************************************************'.format(i+1))
+            print('Beginning optimization: {:>3}-{:>3} ***************************'.format(self.n, i+1))
+            start = datetime.datetime.now()
 
             # do the optimization...
             p_opt = dadi.Inference.optimize_log(p_perturb, fs, func_ex, self.grid_size,
@@ -137,7 +138,10 @@ class DadiModelOptimizeParams(luigi.Task):
                                                 verbose=20,
                                                 maxiter=DADI_MAX_ITER)
 
-            print('Finshed optimization: {}  **************************************************'.format(i+1))
+            end = datetime.datetime.now()
+            diff = int((end - start).total_seconds() / 60)
+
+            print('Finshed optimization: **** n={:>3} **** i={:>3} **** t={:>3} mins '.format(self.n, i+1, diff))
 
             # reset the log buffer
             log_buffer.log = []
