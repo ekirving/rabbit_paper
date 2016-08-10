@@ -226,12 +226,6 @@ class PicardMarkDuplicates(luigi.Task):
 
     def run(self):
 
-        # https://broadinstitute.github.io/picard/command-line-overview.html#FixMateInformation
-        run_cmd(["java", "-jar", PICARD,
-                 "FixMateInformation",
-                 "INPUT=bam/{0}.bam".format(self.sample)])
-
-        # https://broadinstitute.github.io/picard/command-line-overview.html#MarkDuplicates
         run_cmd(["java", "-jar", PICARD,
                  "MarkDuplicates",
                  "INPUT=bam/{0}.bam".format(self.sample),
