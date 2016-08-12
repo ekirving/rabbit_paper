@@ -305,11 +305,8 @@ class GatkGenotypeGVCFs(luigi.Task):
 
     def run(self):
 
-        # is this the outgroup population (because we use lower quality filers for the outgroup)
-        is_outgroup = (self.population == 'OUT')
-
-        # get the min call threshold
-        min_qual = MIN_GENOTYPE_QUAL if not is_outgroup else OUTGROUP_MIN_GQ
+        # get the min quality threshold for emitting variants
+        min_emit_qual = MIN_GENOTYPE_QUAL if self.population != 'OUT' else 1
 
         # make a list of input files
         vcf_files = sum([["-V", "vcf/{0}.g.vcf".format(sample)] for sample in self.samples], [])
@@ -317,9 +314,9 @@ class GatkGenotypeGVCFs(luigi.Task):
         run_cmd(["java", "-Xmx8G", "-jar", GATK,
                  "-T", "GenotypeGVCFs",                     # use GenotypeGVCFs to jointly call variants
                  "--num_threads", MAX_CPU_CORES,            # number of data threads to allocate to this analysis
-                 "--includeNonVariantSites",                # include loci found to be non-variant after genotyping
-                 "-stand_emit_conf", min_qual,              # min confidence threshold
-                 "-stand_call_conf", min_qual,              # min call threshold
+                 "--includeNonVariantSites",                # include sites found to be non-variant after genotyping
+                 "-stand_call_conf", MIN_GENOTYPE_QUAL,     # mark all sites with a phred score below this as LowQual
+                 "-stand_emit_conf", min_emit_qual,         # emit all sites with a phred score above this
                  "-R", "fasta/{0}.fa".format(self.genome),  # the indexed reference genome
                  "-o", "vcf/{0}.vcf".format(self.population)]
                 + vcf_files)

@@ -93,9 +93,6 @@ DEFAULT_COMPRESSION = 6
 # the minimum phred scaled genotype quality (30 = 99.9%)
 MIN_GENOTYPE_QUAL = 30
 
-# use a lower threshold for the outgroup to maintain sufficient coverage
-OUTGROUP_MIN_GQ = 20
-
 # the minimum depth of coverage for a site
 MIN_COVERAGE_DEPTH = 8
 
