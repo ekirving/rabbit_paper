@@ -169,7 +169,7 @@ def extract_variant_sites(population, samples, variants):
                 continue
 
             # skip sites around indels
-            if ref == "*":
+            if alt == "*":
                 continue
 
             if site not in variants:
