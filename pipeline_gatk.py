@@ -283,8 +283,6 @@ class GatkHaplotypeCaller(luigi.Task):
                  "--emitRefConfidence", "GVCF",             # reference model emitted with condensed non-variant blocks
                  "--output_mode", "EMIT_ALL_SITES",         # produces calls at any callable site
                  "-L", TARGETS_LIST,                        # limit to the list of regions defined in the targets file
-                 "-stand_emit_conf", "10",                  # min confidence threshold
-                 "-stand_call_conf", MIN_GENOTYPE_QUAL,     # min call threshold
                  "-I", "bam/{0}.rmdup.bam".format(self.sample),
                  "-o", "vcf/{0}.g.vcf".format(self.sample)])
 
@@ -306,13 +304,19 @@ class GatkGenotypeGVCFs(luigi.Task):
         return luigi.LocalTarget("vcf/{0}.vcf".format(self.population))
 
     def run(self):
+
+        # get the min quality threshold for emitting variants
+        min_emit_qual = MIN_GENOTYPE_QUAL if self.population != 'OUT' else 1
+
         # make a list of input files
         vcf_files = sum([["-V", "vcf/{0}.g.vcf".format(sample)] for sample in self.samples], [])
 
         run_cmd(["java", "-Xmx8G", "-jar", GATK,
                  "-T", "GenotypeGVCFs",                     # use GenotypeGVCFs to jointly call variants
                  "--num_threads", MAX_CPU_CORES,            # number of data threads to allocate to this analysis
-                 "--includeNonVariantSites",                # include loci found to be non-variant after genotyping
+                 "--includeNonVariantSites",                # include sites found to be non-variant after genotyping
+                 "-stand_call_conf", MIN_GENOTYPE_QUAL,     # mark all sites with a phred score below this as LowQual
+                 "-stand_emit_conf", min_emit_qual,         # emit all sites with a phred score above this
                  "-R", "fasta/{0}.fa".format(self.genome),  # the indexed reference genome
                  "-o", "vcf/{0}.vcf".format(self.population)]
                 + vcf_files)
