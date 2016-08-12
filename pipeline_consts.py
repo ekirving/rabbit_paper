@@ -3,6 +3,8 @@
 
 import multiprocessing
 
+from copy import copy
+
 # the reference genome
 GENOME = "OryCun2.0"
 GENOME_URL = "ftp://ftp.ensembl.org/pub/release-84/fasta/oryctolagus_cuniculus/dna/Oryctolagus_cuniculus.OryCun2.0" \
@@ -90,11 +92,11 @@ del GROUPS['no-out-ib1']['WLD-IB1']
 # now lets drop the admixed individuals
 GROUPS['no-admix'] = POPULATIONS.copy()
 
-GROUPS['no-admix']['WLD-FRE2'] = POPULATIONS['WLD-FRE'].copy()
+GROUPS['no-admix']['WLD-FRE2'] = copy(POPULATIONS['WLD-FRE'])
 GROUPS['no-admix']['WLD-FRE2'].remove('SRR997303')  # Herauld
 GROUPS['no-admix']['WLD-FRE2'].remove('SRR997319')  # Aveyron
 
-GROUPS['no-admix']['WLD-FRE3'] = POPULATIONS['WLD-FRE'].copy()
+GROUPS['no-admix']['WLD-FRE3'] = copy(POPULATIONS['WLD-FRE'])
 GROUPS['no-admix']['WLD-FRE3'].remove('SRR997303')  # Herauld
 GROUPS['no-admix']['WLD-FRE3'].remove('SRR997319')  # Aveyron
 GROUPS['no-admix']['WLD-FRE3'].remove('SRR997305')  # Vaucluse
