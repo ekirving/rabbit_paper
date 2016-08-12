@@ -145,6 +145,10 @@ def extract_variant_sites(population, samples, variants):
             if '<NON_REF>' in alt_list:
                 alt_list.remove('<NON_REF>')
 
+            # also handle the "." notation
+            if '.' in alt_list:
+                alt_list.remove('.')
+
             # skip polyallelic sites
             if len(alt_list) > 1:
                 logging.debug('{}\t{}\tPolyAllelic\t{}/{}'.format(population, site, ref, alt_list))
@@ -240,7 +244,7 @@ def find_flanking_bases(variants):
             flank2 = (locus[CHROM], int(locus[POS]) + 1) # left flank of subsequent site
 
             ref = locus[REF]
-            alt = locus[ALT].replace('<NON_REF>', ref)
+            alt = locus[ALT].replace('<NON_REF>', ref).replace('.', ref)
 
             # skip indels and pollyallelic sites
             if len(ref) > 1 or len(alt) > 1 or alt is "*":
