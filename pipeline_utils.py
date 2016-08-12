@@ -169,7 +169,7 @@ def extract_variant_sites(population, samples, variants):
                 continue
 
             # skip sites around indels
-            if ref is "*":
+            if ref == "*":
                 continue
 
             if site not in variants:
@@ -247,7 +247,7 @@ def find_flanking_bases(variants):
             alt = locus[ALT].replace('<NON_REF>', ref).replace('.', ref)
 
             # skip indels and pollyallelic sites
-            if len(ref) > 1 or len(alt) > 1 or alt is "*":
+            if len(ref) > 1 or len(alt) > 1 or alt == "*":
                 continue
 
             if flank1 in variants:
