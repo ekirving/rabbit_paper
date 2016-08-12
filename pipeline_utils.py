@@ -164,6 +164,10 @@ def extract_variant_sites(population, samples, variants):
                 indels.append(site + (size,))
                 continue
 
+            # skip sites around indels
+            if ref is "*":
+                continue
+
             if site not in variants:
                 # initialise site locus dictionary
                 variants[site] = dict()
@@ -202,7 +206,7 @@ def extract_variant_sites(population, samples, variants):
                     # homozygous alternate
                     variants[site][alt][population] += 2
 
-    # filter sites within +/- 10 bases of each idels
+    # filter sites within +/- 10 bases of each indel
     for indel in indels:
         chrom, pos, size = indel
 
@@ -286,7 +290,7 @@ def generate_frequency_spectrum(populations):
         variants[site]['alt'] = ancestral[0]
 
     # record the number of viable sites (we need this for scaling theta in the output from dadi)
-    viable_sites =  len(variants)
+    viable_sites = len(variants)
 
     # now lets drop all the non variant sites
     for site in list(variants):
