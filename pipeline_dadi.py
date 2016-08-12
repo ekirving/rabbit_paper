@@ -198,7 +198,8 @@ class DadiModelMaximumLikelihood(luigi.Task):
     lower_bound = luigi.ListParameter()
 
     def requires(self):
-        for n in range(0, DADI_MAX_ITER):
+        # TODO restore DADI_MAX_ITER when done testing
+        for n in range(0, 1):
             # randomly generate starting params, within the bounding ranges
             param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i])
                            for i in range(0, len(self.upper_bound))]
@@ -264,10 +265,13 @@ class CustomDadiPipeline(luigi.WrapperTask):
 
     def requires(self):
 
-        # run the whole analysis for 3 sets of pairwise comparisons
-        for pop1, pop2 in [('DOM',     'WLD-FRE'),
-                           ('WLD-FRE', 'WLD-IB2'),
-                           ('WLD-IB2', 'WLD-IB1')]:
+        # run the whole analysis for multiple sets of pairwise comparisons
+        for group, pop1, pop2 in [('all-pops',  'DOM',     'WLD-FRE'),
+                                  ('all-pops',  'WLD-FRE', 'WLD-IB2'),
+                                  ('all-pops',  'WLD-IB2', 'WLD-IB1'),
+                                  ('no-admix',  'DOM',     'WLD-FRE2'),
+                                  ('no-admix',  'DOM',     'WLD-FRE3'),
+                                  ('split-fre', 'FRE-1',   'FRE-2')]:
 
             # TODO experiment to see how changing this effects run time and model fitting
             grid_size = [10, 50, 60]
@@ -284,7 +288,7 @@ class CustomDadiPipeline(luigi.WrapperTask):
             upper_bound = [100, 100, 3, 10]
             lower_bound = [1e-2, 1e-2, 0, 0]
 
-            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
                                              upper_bound, lower_bound)
 
             # ----------------------------------------------------------------------------------------------------------
@@ -302,7 +306,7 @@ class CustomDadiPipeline(luigi.WrapperTask):
             upper_bound = [0.9999, 100, 100, 3, 10, 10]
             lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
 
-            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
                                              upper_bound, lower_bound)
 
             # -------------------
@@ -312,7 +316,7 @@ class CustomDadiPipeline(luigi.WrapperTask):
             upper_bound = [0.5, 100, 100, 3, 10, 10]
             lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
 
-            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
                                              upper_bound, lower_bound)
 
             # -------------------
@@ -321,7 +325,7 @@ class CustomDadiPipeline(luigi.WrapperTask):
             upper_bound = [0.5, 100, 100, 3, 0, 0]
             lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
 
-            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
                                              upper_bound, lower_bound)
 
             # -------------------
@@ -330,6 +334,6 @@ class CustomDadiPipeline(luigi.WrapperTask):
             upper_bound = [0.9999, 100, 100, 3, 0, 0]
             lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
 
-            yield DadiModelMaximumLikelihood('all-pops', pop1, pop2, model, scenario, param_names, grid_size,
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
                                              upper_bound, lower_bound)
 

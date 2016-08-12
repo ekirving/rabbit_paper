@@ -87,6 +87,23 @@ GROUPS['no-out-ib1'] = POPULATIONS.copy()
 del GROUPS['no-out-ib1']['OUT']
 del GROUPS['no-out-ib1']['WLD-IB1']
 
+# now lets drop the admixed individuals
+GROUPS['no-admix'] = POPULATIONS.copy()
+
+GROUPS['no-admix']['WLD-FRE2'] = POPULATIONS['WLD-FRE'].copy()
+GROUPS['no-admix']['WLD-FRE2'].remove('SRR997303')  # Herauld
+GROUPS['no-admix']['WLD-FRE2'].remove('SRR997319')  # Aveyron
+
+GROUPS['no-admix']['WLD-FRE3'] = POPULATIONS['WLD-FRE'].copy()
+GROUPS['no-admix']['WLD-FRE3'].remove('SRR997303')  # Herauld
+GROUPS['no-admix']['WLD-FRE3'].remove('SRR997319')  # Aveyron
+GROUPS['no-admix']['WLD-FRE3'].remove('SRR997305')  # Vaucluse
+
+# now lets break up the French into two geographic groups
+GROUPS['split-fre'] = POPULATIONS.copy()
+GROUPS['split-fre']['FRE-1'] = ['SRR997304', 'SRR997316', 'SRR997317', 'SRR997318'],  # Fos-su-Mer, Lancon
+GROUPS['split-fre']['FRE-2'] = ['SRR997303', 'SRR997305', 'SRR997319']                # Herauld, Vaucluse, Aveyron
+
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
 
