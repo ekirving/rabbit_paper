@@ -103,8 +103,8 @@ GROUPS['no-admix']['WLD-FRE3'].remove('SRR997305')  # Vaucluse
 
 # now lets break up the French into two geographic groups
 GROUPS['split-fre'] = POPULATIONS.copy()
-GROUPS['split-fre']['FRE-1'] = ['SRR997304', 'SRR997316', 'SRR997317', 'SRR997318'],  # Fos-su-Mer, Lancon
-GROUPS['split-fre']['FRE-2'] = ['SRR997303', 'SRR997305', 'SRR997319']                # Herauld, Vaucluse, Aveyron
+GROUPS['split-fre']['FRE-1'] = ['SRR997304', 'SRR997316', 'SRR997317', 'SRR997318']  # Fos-su-Mer, Lancon
+GROUPS['split-fre']['FRE-2'] = ['SRR997303', 'SRR997305', 'SRR997319']               # Herauld, Vaucluse, Aveyron
 
 # the samtools flag for BAM file comression
 DEFAULT_COMPRESSION = 6
