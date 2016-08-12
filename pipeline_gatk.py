@@ -283,8 +283,6 @@ class GatkHaplotypeCaller(luigi.Task):
                  "--emitRefConfidence", "GVCF",             # reference model emitted with condensed non-variant blocks
                  "--output_mode", "EMIT_ALL_SITES",         # produces calls at any callable site
                  "-L", TARGETS_LIST,                        # limit to the list of regions defined in the targets file
-                 "-stand_emit_conf", "10",                  # min confidence threshold
-                 "-stand_call_conf", MIN_GENOTYPE_QUAL,     # min call threshold
                  "-I", "bam/{0}.rmdup.bam".format(self.sample),
                  "-o", "vcf/{0}.g.vcf".format(self.sample)])
 
@@ -306,6 +304,13 @@ class GatkGenotypeGVCFs(luigi.Task):
         return luigi.LocalTarget("vcf/{0}.vcf".format(self.population))
 
     def run(self):
+
+        # is this the outgroup population (because we use lower quality filers for the outgroup)
+        is_outgroup = (self.population == 'OUT')
+
+        # get the min call threshold
+        min_qual = MIN_GENOTYPE_QUAL if not is_outgroup else OUTGROUP_MIN_GQ
+
         # make a list of input files
         vcf_files = sum([["-V", "vcf/{0}.g.vcf".format(sample)] for sample in self.samples], [])
 
@@ -313,6 +318,8 @@ class GatkGenotypeGVCFs(luigi.Task):
                  "-T", "GenotypeGVCFs",                     # use GenotypeGVCFs to jointly call variants
                  "--num_threads", MAX_CPU_CORES,            # number of data threads to allocate to this analysis
                  "--includeNonVariantSites",                # include loci found to be non-variant after genotyping
+                 "-stand_emit_conf", min_qual,              # min confidence threshold
+                 "-stand_call_conf", min_qual,              # min call threshold
                  "-R", "fasta/{0}.fa".format(self.genome),  # the indexed reference genome
                  "-o", "vcf/{0}.vcf".format(self.population)]
                 + vcf_files)
