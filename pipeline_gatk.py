@@ -924,9 +924,6 @@ class CustomGenomePipeline(luigi.WrapperTask):
         for group in GROUPS:
             yield FlashPCAPlot(group, GENOME)
 
-        # TODO remove when done testing
-        yield CustomDadiPipeline()
-
 
 if __name__=='__main__':
     luigi.run()
