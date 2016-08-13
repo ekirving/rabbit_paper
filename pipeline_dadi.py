@@ -128,7 +128,8 @@ class DadiModelOptimizeParams(luigi.Task):
                                                  upper_bound=self.upper_bound,
                                                  lower_bound=self.lower_bound)
 
-            print('Beginning optimization: {:>3}-{:>3} ***************************'.format(self.n, i+1))
+            print('Beginning optimization: n={:>3} **** i={:>3} ***************************'.format(self.n,
+                                                                                                    i+1))
             start = datetime.datetime.now()
 
             # do the optimization...
@@ -141,7 +142,11 @@ class DadiModelOptimizeParams(luigi.Task):
             end = datetime.datetime.now()
             diff = int((end - start).total_seconds() / 60)
 
-            print('Finshed optimization: **** n={:>3} **** i={:>3} **** t={:>3} mins '.format(self.n, i+1, diff))
+            print('Finshed optimization: {} {} **** n={:>3} **** i={:>3} **** t={:>3} mins '.format(self.model,
+                                                                                                    self.scenario,
+                                                                                                    self.n,
+                                                                                                    i+1,
+                                                                                                    diff))
 
             # reset the log buffer
             log_buffer.log = []
