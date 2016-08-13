@@ -67,7 +67,7 @@ class DadiSpectrum(luigi.Task):
         pops = [self.pop1, self.pop2]
 
         # project each population down by one sample to allow for a little missing coverage
-        prj = [(len(POPULATIONS[pop]) - 1) * 2 for pop in pops]
+        prj = [(len(GROUPS[self.group][pop]) - 1) * 2 for pop in pops]
 
         # extract the spectrum for the two populations from the dictionary and project down
         fs = dadi.Spectrum.from_data_dict(dd, pops, prj, polarized=True)
