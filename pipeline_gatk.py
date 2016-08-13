@@ -135,7 +135,7 @@ class BwaMem(luigi.Task):
         if self.paired:
             fastq = ["fastq/{0}_1.fastq.gz".format(self.sample),  # pair 1
                      "fastq/{0}_2.fastq.gz".format(self.sample)]  # pair 2
-        else :
+        else:
             fastq = ["fastq/{0}.fastq.gz".format(self.sample)]    # unapired
 
         # perform the alignment
@@ -144,7 +144,7 @@ class BwaMem(luigi.Task):
                        "-t", MAX_CPU_CORES,                 # number of cores
                        "-R", read_group,                    # read group metadata
                        "fasta/{0}.fa".format(self.genome)]  # reference genome
-                       + fastq,                             # input files
+                      + fastq,                              # input files
                       returnout=True)
 
         # save the SAM file
@@ -172,10 +172,10 @@ class SamtoolsSortBam(luigi.Task):
 
         # perform the SAM -> BAM conversion and sorting
         bam = run_cmd([SAMTOOLS,
-                       "sort",                    # sort the reads
-                       "-l", DEFAULT_COMPRESSION, # level of compression
-                       "-@", MAX_CPU_CORES,       # number of cores
-                       "-O", "bam",               # output a BAM file
+                       "sort",                     # sort the reads
+                       "-l", DEFAULT_COMPRESSION,  # level of compression
+                       "-@", MAX_CPU_CORES,        # number of cores
+                       "-O", "bam",                # output a BAM file
                        "sam/{0}.{1}.sam".format(self.sample, suffix)],
                       returnout=True)
 
@@ -201,14 +201,14 @@ class SamtoolsMergeBam(luigi.Task):
 
     def run(self):
         # perform the SAM -> BAM conversion and sorting
-        bam = run_cmd([SAMTOOLS,
-                       "merge",                                   # sort the reads
-                       "-c",                                      # combine the @RG headers
-                       "-@", MAX_CPU_CORES,                       # number of cores
-                       "bam/{0}.bam".format(self.sample),         # output file
-                       "bam/{0}.paired.bam".format(self.sample),
-                       "bam/{0}.single.bam".format(self.sample)],
-                      returnout=True)
+        run_cmd([SAMTOOLS,
+                 "merge",                                   # sort the reads
+                 "-c",                                      # combine the @RG headers
+                 "-@", MAX_CPU_CORES,                       # number of cores
+                 "bam/{0}.bam".format(self.sample),         # output file
+                 "bam/{0}.paired.bam".format(self.sample),
+                 "bam/{0}.single.bam".format(self.sample)],
+                returnout=True)
 
 
 class PicardMarkDuplicates(luigi.Task):
@@ -354,6 +354,7 @@ class GatkSelectVariants(luigi.Task):
         with self.output().open('w') as fout:
             fout.write(vcf)
 
+
 class PlinkMakeBed(luigi.Task):
     """
     Convert a population gVCF into a BED file (binary pedigree)
@@ -444,7 +445,7 @@ class PlinkMergeBeds(luigi.Task):
         except Exception as e:
 
             # handle merge errors
-            if os.path.isfile("bed/{0}-merge.missnp".format(self.group)) :
+            if os.path.isfile("bed/{0}-merge.missnp".format(self.group)):
 
                 # filter all the BED files, using the missnp file created by the failed merge
                 for population in GROUPS[self.group]:
@@ -570,15 +571,14 @@ class AdmixturePlotK(luigi.Task):
         return AdmixtureK(self.group, self.genome, self.k)
 
     def output(self):
-        extensions = ['data', 'pdf']
         return [luigi.LocalTarget("admix/{0}.pruned.{1}.data".format(self.group, self.k)),
                 luigi.LocalTarget("pdf/{0}.admix.K.{1}.pdf".format(self.group, self.k))]
 
     def run(self):
 
         # use awk and paste to add population and sample names, needed for the plot
-        awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) + ".fam | " \
-              "paste - admix/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
+        awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) \
+              + ".fam | paste - admix/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
 
         data = run_cmd([awk], returnout=True, shell=True)
 
@@ -612,7 +612,7 @@ class AdmixtureCV(luigi.Task):
 
     def output(self):
         return [luigi.LocalTarget("admix/{0}.pruned.CV.data".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.admix.CV.pdf".format(self.group)),]
+                luigi.LocalTarget("pdf/{0}.admix.CV.pdf".format(self.group))]
 
     def run(self):
 
@@ -710,15 +710,14 @@ class sNMF_PlotK(luigi.Task):
         return sNMF_K(self.group, self.genome, self.k)
 
     def output(self):
-        extensions = ['data', 'pdf']
         return [luigi.LocalTarget("snmf/{0}.pruned.{1}.data".format(self.group, self.k)),
                 luigi.LocalTarget("pdf/{0}.snmf.K.{1}.pdf".format(self.group, self.k))]
 
     def run(self):
 
         # use awk and paste to add population and sample names, needed for the plot
-        awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) + ".fam | " \
-              "paste - snmf/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
+        awk = "awk '{ print substr($1, length($1)-2, 3) \"-\" substr($2, length($2)-2, 3) }' bed/" + str(self.group) + \
+              ".fam | paste - snmf/" + str(self.group) + ".pruned." + str(self.k) + ".Q"
 
         data = run_cmd([awk], returnout=True, shell=True)
 
@@ -752,7 +751,7 @@ class sNMF_CE(luigi.Task):
 
     def output(self):
         return [luigi.LocalTarget("snmf/{0}.pruned.CE.data".format(self.group)),
-                luigi.LocalTarget("pdf/{0}.sNMF.CE.pdf".format(self.group)),]
+                luigi.LocalTarget("pdf/{0}.sNMF.CE.pdf".format(self.group))]
 
     def run(self):
 
@@ -925,5 +924,5 @@ class CustomGenomePipeline(luigi.WrapperTask):
             yield FlashPCAPlot(group, GENOME)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     luigi.run()
