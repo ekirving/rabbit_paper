@@ -199,7 +199,7 @@ class DadiModelMaximumLikelihood(luigi.Task):
 
     def requires(self):
         # TODO restore DADI_MAX_ITER when done testing
-        for n in range(0, 1):
+        for n in range(0, 10):
             # randomly generate starting params, within the bounding ranges
             param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i])
                            for i in range(0, len(self.upper_bound))]
