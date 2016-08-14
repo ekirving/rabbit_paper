@@ -219,13 +219,14 @@ def extract_variant_sites(population, samples, variants):
 
         for site in sites:
             # remove the current population, but leave the others
-            for allele in variants.get(site, []):
+            for allele in list(variants.get(site, [])):
                 if population in variants[site][allele]:
                     del variants[site][allele][population]
                     # remove the allele if this was the only population
                     if len(variants[site][allele]) == 0:
                         del variants[site][allele]
-                logging.debug('{}\t{}\tInDelProximity\t{}'.format(population, site, indel))
+
+                    logging.debug('{}\t{}\tInDelProximity\t{}'.format(population, site, indel))
 
 
 def find_flanking_bases(variants):
