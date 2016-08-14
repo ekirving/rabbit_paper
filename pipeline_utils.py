@@ -218,14 +218,14 @@ def extract_variant_sites(population, samples, variants):
         sites = [(chrom, pos + offset) for offset in range(-INDEL_BUFFER, (size + INDEL_BUFFER + 1))]
 
         for site in sites:
-            # remove the current population, but leave the others
+            # check each allele for the current population
             for allele in list(variants.get(site, [])):
                 if population in variants[site][allele]:
+                    # remove the current population, but leave the others
                     del variants[site][allele][population]
-                    # remove the allele if this was the only population
+                    # remove the allele entirely, if this was the only population (prevents empty alleles in output)
                     if len(variants[site][allele]) == 0:
                         del variants[site][allele]
-
                     logging.debug('{}\t{}\tInDelProximity\t{}'.format(population, site, indel))
 
 
