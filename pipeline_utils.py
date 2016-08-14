@@ -222,6 +222,9 @@ def extract_variant_sites(population, samples, variants):
             for allele in variants.get(site, []):
                 if population in variants[site][allele]:
                     del variants[site][allele][population]
+                    # remove the allele if this was the only population
+                    if len(variants[site][allele]) == 0:
+                        del variants[site][allele]
                 logging.debug('{}\t{}\tInDelProximity\t{}'.format(population, site, indel))
 
 
