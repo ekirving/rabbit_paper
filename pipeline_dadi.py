@@ -115,7 +115,7 @@ class DadiModelOptimizeParams(luigi.Task):
         # keep a list of the optimal params
         p_best = []
 
-        # start with the randon value passed to this task
+        # start with the random values passed to this task
         p_start = self.param_start
 
         # run the optimisation many times
@@ -128,8 +128,11 @@ class DadiModelOptimizeParams(luigi.Task):
                                                  upper_bound=self.upper_bound,
                                                  lower_bound=self.lower_bound)
 
-            print('Beginning optimization: n={:>3} **** i={:>3} ***************************'.format(self.n,
-                                                                                                    i+1))
+            print('Beginning optimization: {} | {} | {} **** n={:>3} **** i={:>3} **** '.format(self.group,
+                                                                                                self.model,
+                                                                                                self.scenario,
+                                                                                                self.n,
+                                                                                                i+1))
             start = datetime.datetime.now()
 
             # do the optimization...
@@ -142,11 +145,12 @@ class DadiModelOptimizeParams(luigi.Task):
             end = datetime.datetime.now()
             diff = int((end - start).total_seconds() / 60)
 
-            print('Finshed optimization: {} {} **** n={:>3} **** i={:>3} **** t={:>3} mins '.format(self.model,
-                                                                                                    self.scenario,
-                                                                                                    self.n,
-                                                                                                    i+1,
-                                                                                                    diff))
+            print('Finshed optimization: {} | {} | {} **** n={:>3} **** i={:>3} **** t={:>3} mins'.format(self.group,
+                                                                                                          self.model,
+                                                                                                          self.scenario,
+                                                                                                          self.n,
+                                                                                                          i+1,
+                                                                                                          diff))
 
             # reset the log buffer
             log_buffer.log = []
@@ -179,9 +183,16 @@ class DadiModelOptimizeParams(luigi.Task):
                 # run the optimisation again, starting from the best fit we've seen so far
                 p_start = p_best[0][2:]
             except IndexError:
-                # fall back on the params we started with
-                p_start = self.param_start
+                # otherwise, generate a set of new random starting params (so we don't get stuck in bad param space)
+                p_start = [random.uniform(self.lower_bound[j], self.upper_bound[j])
+                           for j in range(0, len(self.upper_bound))]
 
+        # if we've run the iteration DADI_MAX_ITER times and not found any non-masked params then we've failed
+        if not p_best:
+            raise Exception("{} | {} | {} | n={}: FAILED to find any non-masked params".format(self.group,
+                                                                                               self.model,
+                                                                                               self.scenario,
+                                                                                               self.n))
         # save the list of optimal params by pickeling them in a file
         with self.output().open('w') as fout:
             pickle.dump(p_best, fout)
