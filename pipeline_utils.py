@@ -93,12 +93,13 @@ def curl_download(url, filename):
 
 def extract_variant_sites(population, samples, variants):
 
-    # is this the outgroup population (because we don't quality filer the outgroup)
+    # is this the outgroup population (because we don't quality filter the outgroup)
     is_outgroup = (population == 'OUT')
 
-    # keep track of indels so we can filter SNPs within +/-10 bases
+    # keep track of indels so we can filter SNPs within ±10 bases
     indels = []
 
+    # parse the population VCF file
     with open('./vcf/' + population + '.vcf', 'r') as infile:
 
         # get the first line
@@ -141,7 +142,7 @@ def extract_variant_sites(population, samples, variants):
             # get the alternative allele(s)
             alt_list = locus[ALT].split(',')
 
-            # deal with the stupid <NON_REF> notation used by BP_RESOLUTION... grrr...
+            # deal with the stupid <NON_REF> notation used by GATK... grrr...
             if '<NON_REF>' in alt_list:
                 alt_list.remove('<NON_REF>')
 
@@ -210,7 +211,7 @@ def extract_variant_sites(population, samples, variants):
                     # homozygous alternate
                     variants[site][alt][population] += 2
 
-    # filter sites within +/- 10 bases of each indel
+    # filter sites within ±10 bases of each indel
     for indel in indels:
         chrom, pos, size = indel
 
@@ -223,7 +224,7 @@ def extract_variant_sites(population, samples, variants):
                 if population in variants[site][allele]:
                     # remove the current population, but leave the others
                     del variants[site][allele][population]
-                    # remove the allele entirely, if this was the only population (prevents empty alleles in output)
+                    # if this was the only population, then remove the allele entirely
                     if len(variants[site][allele]) == 0:
                         del variants[site][allele]
                     logging.debug('{}\t{}\tInDelProximity\t{}'.format(population, site, indel))
