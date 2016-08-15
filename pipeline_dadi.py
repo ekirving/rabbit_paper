@@ -216,8 +216,7 @@ class DadiModelMaximumLikelihood(luigi.Task):
     fixed_params = luigi.ListParameter()
 
     def requires(self):
-        # TODO restore DADI_MAX_ITER when done testing
-        for n in range(0, 10):
+        for n in range(0, DADI_MAX_ITER):
             # make some random starting params
             param_start = random_params(self.lower_bound, self.upper_bound, self.fixed_params)
 
