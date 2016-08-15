@@ -135,7 +135,7 @@ class DadiModelOptimizeParams(luigi.Task):
                     if self.fixed_params[j] is not None:
                         p_perturb[j] = self.fixed_params[j]
 
-            print('Started optimization: {:<12} | {:<8} | {:<8} | {:<9} | {:<15} | n={:>3} | i={:<3} |'.format(
+            print('Started optimization: {:<12} | {:<8} | {:<8} | {:<9} | {:<15} | n={:>3} | i={:>3} |'.format(
                 self.group, self.pop1, self.pop2, self.model, self.scenario, self.n, i))
 
             start = datetime.datetime.now()
