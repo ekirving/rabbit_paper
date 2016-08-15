@@ -134,11 +134,9 @@ class DadiModelOptimizeParams(luigi.Task):
                 if self.fixed_params[i] is not None:
                     p_perturb[i] = self.fixed_params[i]
 
-            print('Beginning optimization: {} | {} | {} **** n={:>3} **** i={:>3} **** '.format(self.group,
-                                                                                                self.model,
-                                                                                                self.scenario,
-                                                                                                self.n,
-                                                                                                i+1))
+            print('Beginning optimization: {:>12} | {:>7} | {:>7} | {:>9} | {:>15} | n={:>3} | i={:>3}'.format(
+                self.group, self.pop1, self.pop2, self.model, self.scenario, self.n, i))
+
             start = datetime.datetime.now()
 
             # do the optimization...
@@ -152,12 +150,8 @@ class DadiModelOptimizeParams(luigi.Task):
             end = datetime.datetime.now()
             diff = int((end - start).total_seconds() / 60)
 
-            print('Finshed optimization: {} | {} | {} **** n={:>3} **** i={:>3} **** t={:>3} mins'.format(self.group,
-                                                                                                          self.model,
-                                                                                                          self.scenario,
-                                                                                                          self.n,
-                                                                                                          i+1,
-                                                                                                          diff))
+            print('Finshed optimization: {:>12} | {:>7} | {:>7} | {:>9} | {:>15} | n={:>3} | i={:>3} | t={:>3} mins'.format(
+                self.group, self.pop1, self.pop2, self.model, self.scenario, self.n, i, diff))
 
             # reset the log buffer
             log_buffer.log = []
