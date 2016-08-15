@@ -131,11 +131,11 @@ class DadiModelOptimizeParams(luigi.Task):
 
             # enforce any fixed params
             if self.fixed_params:
-                for i in range(0, len(self.fixed_params)):
-                    if self.fixed_params[i] is not None:
-                        p_perturb[i] = self.fixed_params[i]
+                for j in range(0, len(self.fixed_params)):
+                    if self.fixed_params[j] is not None:
+                        p_perturb[j] = self.fixed_params[j]
 
-            print('Beginning optimization: {:<12} | {:<7} | {:<7} | {:<9} | {:<15} | n={:<3} | i={:<3}'.format(
+            print('Started optimization: {:<12} | {:<8} | {:<8} | {:<9} | {:<15} | n={:<3} | i={:<3} |'.format(
                 self.group, self.pop1, self.pop2, self.model, self.scenario, self.n, i))
 
             start = datetime.datetime.now()
@@ -151,7 +151,7 @@ class DadiModelOptimizeParams(luigi.Task):
             end = datetime.datetime.now()
             diff = (end - start).total_seconds() / 60
 
-            print('Finshed optimization: {:<12} | {:<7} | {:<7} | {:<9} | {:<15} | n={:<3} | i={:>3} | t={:>3.1f} mins'.format(
+            print('Finshed optimization: {:<12} | {:<8} | {:<8} | {:<9} | {:<15} | n={:<3} | i={:>3} | t={:>3.1f} mins'.format(
                 self.group, self.pop1, self.pop2, self.model, self.scenario, self.n, i, diff))
 
             # reset the log buffer
