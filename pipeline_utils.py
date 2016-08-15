@@ -101,9 +101,10 @@ def random_params(lower_bound, upper_bound, fixed_params):
                      for i in range(0, len(upper_bound))]
 
     # enforce any fixed params
-    for i in range(0, len(fixed_params)):
-        if fixed_params[i] is not None:
-            random_params[i] = fixed_params[i]
+    if fixed_params:
+        for i in range(0, len(fixed_params)):
+            if fixed_params[i] is not None:
+                random_params[i] = fixed_params[i]
 
     return random_params
 

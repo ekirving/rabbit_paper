@@ -130,9 +130,10 @@ class DadiModelOptimizeParams(luigi.Task):
                                                  lower_bound=self.lower_bound)
 
             # enforce any fixed params
-            for i in range(0, len(self.fixed_params)):
-                if self.fixed_params[i] is not None:
-                    p_perturb[i] = self.fixed_params[i]
+            if self.fixed_params:
+                for i in range(0, len(self.fixed_params)):
+                    if self.fixed_params[i] is not None:
+                        p_perturb[i] = self.fixed_params[i]
 
             print('Beginning optimization: {:<12} | {:<7} | {:<7} | {:<9} | {:<15} | n={:<3} | i={:<3}'.format(
                 self.group, self.pop1, self.pop2, self.model, self.scenario, self.n, i))
