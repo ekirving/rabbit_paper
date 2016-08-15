@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import subprocess, datetime, hashlib, os, logging
+import subprocess, datetime, hashlib, os, logging, random
 from collections import defaultdict
 
 # import all the constants
@@ -90,6 +90,22 @@ def curl_download(url, filename):
              "--output", filename,  # output path
              url])                  # from this url
 
+
+def random_params(lower_bound, upper_bound, fixed_params):
+    """
+    Randomly generate starting params, within the bounding ranges, with fixed params
+    """
+
+    # make random params
+    random_params = [random.uniform(lower_bound[i], upper_bound[i])
+                     for i in range(0, len(upper_bound))]
+
+    # enforce any fixed params
+    for i in range(0, len(fixed_params)):
+        if fixed_params[i] is not None:
+            random_params[i] = fixed_params[i]
+
+    return random_params
 
 def extract_variant_sites(population, samples, variants):
 

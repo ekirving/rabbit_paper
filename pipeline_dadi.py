@@ -89,6 +89,7 @@ class DadiModelOptimizeParams(luigi.Task):
     grid_size = luigi.ListParameter()
     upper_bound = luigi.ListParameter()
     lower_bound = luigi.ListParameter()
+    fixed_params = luigi.ListParameter()
     param_start = luigi.ListParameter(significant=False)
 
     n = luigi.IntParameter()
@@ -128,6 +129,11 @@ class DadiModelOptimizeParams(luigi.Task):
                                                  upper_bound=self.upper_bound,
                                                  lower_bound=self.lower_bound)
 
+            # enforce any fixed params
+            for i in range(0, len(self.fixed_params)):
+                if self.fixed_params[i] is not None:
+                    p_perturb[i] = self.fixed_params[i]
+
             print('Beginning optimization: {} | {} | {} **** n={:>3} **** i={:>3} **** '.format(self.group,
                                                                                                 self.model,
                                                                                                 self.scenario,
@@ -139,6 +145,7 @@ class DadiModelOptimizeParams(luigi.Task):
             p_opt = dadi.Inference.optimize_log(p_perturb, fs, func_ex, self.grid_size,
                                                 lower_bound=self.lower_bound,
                                                 upper_bound=self.upper_bound,
+                                                fixed_params=self.fixed_params,
                                                 verbose=20,
                                                 maxiter=DADI_MAX_ITER)
 
@@ -184,8 +191,7 @@ class DadiModelOptimizeParams(luigi.Task):
                 p_start = p_best[0][2:]
             except IndexError:
                 # otherwise, generate a set of new random starting params (so we don't get stuck in bad param space)
-                p_start = [random.uniform(self.lower_bound[j], self.upper_bound[j])
-                           for j in range(0, len(self.upper_bound))]
+                p_start = random_params(self.lower_bound, self.upper_bound, self.fixed_params)
 
         # if we've run the iteration DADI_MAX_ITER times and not found any non-masked params then we've failed
         if not p_best:
@@ -212,17 +218,17 @@ class DadiModelMaximumLikelihood(luigi.Task):
     grid_size = luigi.ListParameter()
     upper_bound = luigi.ListParameter()
     lower_bound = luigi.ListParameter()
+    fixed_params = luigi.ListParameter()
 
     def requires(self):
         # TODO restore DADI_MAX_ITER when done testing
         for n in range(0, 10):
-            # randomly generate starting params, within the bounding ranges
-            param_start = [random.uniform(self.lower_bound[i], self.upper_bound[i])
-                           for i in range(0, len(self.upper_bound))]
+            # make some random starting params
+            param_start = random_params(self.lower_bound, self.upper_bound, self.fixed_params)
 
             # find the optimal params
             yield DadiModelOptimizeParams(self.group, self.pop1, self.pop2, self.model, self.scenario, self.grid_size,
-                                          self.upper_bound, self.lower_bound, param_start, n)
+                                          self.upper_bound, self.lower_bound, self.fixed_params, param_start, n)
 
     def output(self):
         return [luigi.LocalTarget("fsdata/{0}_{1}_{2}_{3}_{4}.csv".format(self.group, self.pop1, self.pop2, self.model,
@@ -300,12 +306,15 @@ class CustomDadiPipeline(luigi.WrapperTask):
                            'T',    # Time in the past of split (in units of 2*Na generations)
                            'm']    # Migration rate between populations (2*Na*m)
 
-            scenario = "best-fit"
             upper_bound = [100, 100, 3, 10]
             lower_bound = [1e-2, 1e-2, 0, 0]
 
+            # -------------------
+            scenario = "best-fit"
+            fixed_params = None
+
             yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
-                                             upper_bound, lower_bound)
+                                             upper_bound, lower_bound, fixed_params)
 
             # ----------------------------------------------------------------------------------------------------------
 
@@ -317,39 +326,38 @@ class CustomDadiPipeline(luigi.WrapperTask):
                            'm12',  # Migration from pop 2 to pop 1 (2*Na*m12)
                            'm21']  # Migration from pop 1 to pop 2
 
-            # -------------------
-            scenario = "best-fit"
             upper_bound = [0.9999, 100, 100, 3, 10, 10]
             lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
 
+            # -------------------
+            scenario = "best-fit"
+            fixed_params = None
+
             yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
-                                             upper_bound, lower_bound)
+                                             upper_bound, lower_bound, fixed_params)
 
             # -------------------
             # now lets run the model where we fix certain params, so we can do a direct comparison between them...
             # simulate a simple model, by fixing S
             scenario = "fixed-S"
-            upper_bound = [0.5, 100, 100, 3, 10, 10]
-            lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
+            fixed_params = [0.5, None, None, None, None, None]
 
             yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
-                                             upper_bound, lower_bound)
+                                             upper_bound, lower_bound, fixed_params)
 
             # -------------------
             # simulate a simple model, by fixing S, m12, m21
             scenario = "fixed-S-m12-m21"
-            upper_bound = [0.5, 100, 100, 3, 0, 0]
-            lower_bound = [0.5, 1e-2, 1e-2, 0, 0, 0]
+            fixed_params = [0.5, None, None, None, 0, 0]
 
             yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
-                                             upper_bound, lower_bound)
+                                             upper_bound, lower_bound, fixed_params)
 
             # -------------------
             # simulate a simple model, by fixing m12, m21
             scenario = "fixed-m12-m21"
-            upper_bound = [0.9999, 100, 100, 3, 0, 0]
-            lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
+            fixed_params = [None, None, None, None, 0, 0]
 
             yield DadiModelMaximumLikelihood(group, pop1, pop2, model, scenario, param_names, grid_size,
-                                             upper_bound, lower_bound)
+                                             upper_bound, lower_bound, fixed_params)
 
