@@ -5,7 +5,7 @@ import dadi
 
 
 # Load the data
-fs = dadi.Spectrum.from_file('fsdata/all-pops_DOM_WLD-FRE.fs')
+fs = dadi.Spectrum.from_file('fsdata/DOM_14_WLD-FRE_12.fs')
 ns = fs.sample_sizes
 
 # These are the grid point settings will use for extrapolation.
@@ -21,23 +21,6 @@ func = dadi.Demographics2D.IM
 
 upper_bound = [0.9999, 100,  100,  3, 10, 10]
 lower_bound = [0.0001, 1e-2, 1e-2, 0,  0,  0]
-
-# same as above, but with 100 increments
-# grid = dadi.Inference.index_exp[0.0001:0.9999:10j,
-#                                 1e-2:100:10j,
-#                                 1e-2:100:10j,
-#                                 0:3:10j,
-#                                 0:10:10j,
-#                                 0:10:10j]
-
-
-grid = dadi.Inference.index_exp[0.001:0.005:3j,
-                                0.001:0.040:3j,
-                                0.100:0.500:3j,
-                                0.001:0.005:3j,
-                                1.1e-06:1.6e-06:3j,
-                                5.1e-05:5.6e-05:3j]
-
 
 # This is our initial guess for the parameters, which is somewhat arbitrary.
 p0 = [0.5,  # s: Size of pop 1 after split. (Pop 2 has size 1-s.)
@@ -55,8 +38,7 @@ p0 = [0.5,  # s: Size of pop 1 after split. (Pop 2 has size 1-s.)
 # p0 = [ 0.00865567 ,  0.0100043  ,  0.264837   ,  0.00364864 ,  1.23579e-06,  9.23756e-05] # -1821.73
 
 # best fit from manual runs
-# p0 = [ 0.00365723 ,  0.0100486  ,  0.385703   ,  0.00226085 ,  1.29317e-06,  5.33581e-05] # -1796.36
-p0 = [ 0.00363667 ,  0.0100002  ,  0.386385   ,  0.0022221  ,  1.29317e-06,  5.34115e-05] #-1992.8
+p0 = [ 0.00365723 ,  0.0100486  ,  0.385703   ,  0.00226085 ,  1.29317e-06,  5.33581e-05] # -1796.36
 
 verbose = True
 
@@ -66,35 +48,21 @@ func_ex = dadi.Numerics.make_extrap_log_func(func)
 # make a list of the optimal params
 popt = []
 
-for i in range(0, 1):
+for i in range(0, 3):
 
     # Perturb our parameters before optimization. This does so by taking each
     # parameter a up to a factor of two up or down.
-    # p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound,
-    #                               lower_bound=lower_bound)
+    p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound,
+                                  lower_bound=lower_bound)
 
     if verbose : print('Beginning optimization ************************************************')
 
     # do the optimization...
-    # p1 = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
-    #                                  lower_bound=lower_bound,
-    #                                  upper_bound=upper_bound,
-    #                                  verbose=20 if verbose else 0,
-    #                                  maxiter=100)
-
-    p1 = dadi.Inference.optimize_grid(fs, func_ex, pts_l, grid, verbose=1)
-
-    # def optimize_log(p0, data, model_func, pts, lower_bound=None, upper_bound=None,
-    #              verbose=0, flush_delay=0.5, epsilon=1e-3,
-    #              gtol=1e-5, multinom=True, maxiter=None, full_output=False,
-    #              func_args=[], func_kwargs={}, fixed_params=None, ll_scale=1,
-    #              output_file=None):
-
-    # def optimize_grid(data, model_func, pts, grid,
-    #                   verbose=0, flush_delay=0.5,
-    #                   multinom=True, full_output=False,
-    #                   func_args=[], func_kwargs={}, fixed_params=None,
-    #                   output_file=None):
+    p1 = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
+                                     lower_bound=lower_bound,
+                                     upper_bound=upper_bound,
+                                     verbose=20 if verbose else 0,
+                                     maxiter=100)
 
     if verbose: print('Finshed optimization **************************************************')
 
