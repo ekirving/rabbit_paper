@@ -12,8 +12,8 @@ func = dadi.Demographics2D.IM
 
 # grid to optimise over
 grid = dadi.Inference.index_exp[0.0001:0.9999:100j,  # s: Size of pop 1 after split. (Pop 2 has size 1-s.)
-                                1e-2:100:100j,       # nu1: Final size of pop 1.
-                                1e-2:100:100j,       # nu2: Final size of pop 2.
+                                0.01:100:100j,       # nu1: Final size of pop 1.
+                                0.01:100:100j,       # nu2: Final size of pop 2.
                                 0:3:100j,            # T: Time in the past of split (in units of 2*Na generations)
                                 0:10:100j,           # m12: Migration from pop 2 to pop 1 (2*Na*m12)
                                 0:10:100j]           # m21: Migration from pop 1 to pop 2
