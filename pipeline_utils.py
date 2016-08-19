@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import subprocess, datetime, hashlib, os, logging, random
+import luigi, subprocess, datetime, hashlib, os, logging, random
 from collections import defaultdict
 
 # import all the constants
@@ -396,3 +396,26 @@ class LogBuffer(object):
 
     def write(self, data):
         self.log.append(data)
+
+
+class PrioritisedTask(luigi.Task):
+    """
+    PrioritisedTask that implements a dynamic priority method
+    """
+    @property
+    def priority(self):
+        p = 1
+
+        if self.group == "all-pops":
+            if self.pop1 == "DOM":
+                p += 10
+            elif self.pop1 == "WLD-IB2":
+                p += 5
+
+        if self.model == "IM":
+            p += 5
+
+        if self.scenario == "best-fit":
+            p += 10
+
+        return p

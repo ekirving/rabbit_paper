@@ -76,7 +76,7 @@ class DadiSpectrum(luigi.Task):
         fs.to_file(self.output().path)
 
 
-class DadiModelOptimizeParams(luigi.Task):
+class DadiModelOptimizeParams(PrioritisedTask):
     """
     Optimise the log likelihood of the model paramaters for the given frequency spectrum
     """
