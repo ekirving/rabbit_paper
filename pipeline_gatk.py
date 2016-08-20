@@ -483,19 +483,11 @@ class PlinkIndepPairwise(luigi.Task):
 
     def run(self):
 
-        # apply a filter on minor allele frequencies
-        # retains ~94k SNPs (from ~123k)
-        run_cmd(["plink",
-                 "--make-bed",
-                 "--maf", "0.10",  # allele must be observed > 10% of the time
-                 "--bfile", "bed/{0}".format(self.group),
-                 "--out", "bed/{0}.maf-0.1".format(self.group)])
-
         # calculate the prune list (prune.in / prune.out)
         # retains ~12k SNPs (from ~94k)
         run_cmd(["plink",
                  "--indep-pairwise", 50, 10, 0.5,  # accept R^2 coefficient of up to 0.5
-                 "--bfile", "bed/{0}.maf-0.1".format(self.group),
+                 "--bfile", "bed/{0}".format(self.group),
                  "--out", "bed/{0}".format(self.group)])
 
 
