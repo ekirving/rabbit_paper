@@ -486,7 +486,7 @@ class PlinkIndepPairwise(luigi.Task):
         # calculate the prune list (prune.in / prune.out)
         # retains ~12k SNPs (from ~94k)
         run_cmd(["plink",
-                 "--indep-pairwise", 50, 10, 0.5,  # accept R^2 coefficient of up to 0.5
+                 "--indep-pairwise", 50, 10, 0.1,  # accept R^2 coefficient of up to 0.1
                  "--bfile", "bed/{0}".format(self.group),
                  "--out", "bed/{0}".format(self.group)])
 
