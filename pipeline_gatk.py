@@ -535,12 +535,11 @@ class AdmixtureK(luigi.Task):
         # admixture only outputs to the current directory
         os.chdir('./admix')
 
-        # TODO what about bootstrapping (-B / -B2000)
         log = run_cmd(["admixture",
                        "-j{}".format(MAX_CPU_CORES),                # use multi-threading
                        "--cv=10",                                   # include cross-validation standard errors
                        "../bed/{0}.pruned.bed".format(self.group),  # using this input file
-                       self.k],  # for K ancestral populations
+                       self.k],                                     # for K ancestral populations
                       returnout=True, pwd='../')
 
         # restore previous working directory
