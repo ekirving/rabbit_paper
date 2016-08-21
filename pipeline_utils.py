@@ -419,3 +419,22 @@ class PrioritisedTask(luigi.Task):
             p += 10
 
         return p
+
+
+class IncompleteTask(luigi.Task):
+
+    status = False
+
+    def complete(self):
+        return self.status
+
+    def run(self):
+        self.status = True
+
+class CompleteTask(luigi.Task):
+
+    def complete(self):
+        return True
+
+    def run(self):
+        pass
