@@ -409,6 +409,8 @@ class PrioritisedTask(luigi.Task):
         if self.group == "all-pops":
             if self.pop1 == "DOM":
                 p += 10
+            elif self.pop1 == 'WLD-FRE':
+                p += 5
             elif self.pop1 == "WLD-IB2":
                 p += 5
 
