@@ -1,15 +1,20 @@
 # Numpy is the numerical library dadi is built upon
 from numpy import array
 
+import matplotlib
+# matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 import dadi
 
-
 # Load the data
-fs = dadi.Spectrum.from_file('fsdata/DOM_14_WLD-FRE_12.fs')
+fs = dadi.Spectrum.from_file('fsdata/all-pops_DOM_WLD-FRE.fs')
 ns = fs.sample_sizes
 
 # These are the grid point settings will use for extrapolation.
-pts_l = [40,50,60]
+# pts_l = [40,50,60]
+
+pts_l = [ns[0]+10, ns[0]+20, ns[0]+30]
 
 # Isolation-with-migration model with exponential pop growth.
 func = dadi.Demographics2D.IM
@@ -19,8 +24,17 @@ func = dadi.Demographics2D.IM
 # want to exclude values with very long times, very small population sizes, or
 # very high migration rates, as they will take a long time to evaluate.
 
-upper_bound = [0.9999, 100,  100,  3, 10, 10]
-lower_bound = [0.0001, 1e-2, 1e-2, 0,  0,  0]
+# crazy big bounds !!!
+upper_bound = [1-1e-10,  100, 100, 10, 1e5, 1e5]
+lower_bound = [  1e-10, 1e-10, 1e-10,  0,   0,   0]
+
+# more realistic
+# upper_bound = [0.9999, 100,  100, 10, 30, 30]
+# lower_bound = [0.001, 1e-2, 1e-2, 0,  0,  0]
+
+
+# upperIM = [0.99, 10, 10, 5, 20, 20]
+# lowerIM = [0.01, 0.5, 0.5, 0.005, .1, .1]
 
 # This is our initial guess for the parameters, which is somewhat arbitrary.
 p0 = [0.5,  # s: Size of pop 1 after split. (Pop 2 has size 1-s.)
@@ -38,31 +52,66 @@ p0 = [0.5,  # s: Size of pop 1 after split. (Pop 2 has size 1-s.)
 # p0 = [ 0.00865567 ,  0.0100043  ,  0.264837   ,  0.00364864 ,  1.23579e-06,  9.23756e-05] # -1821.73
 
 # best fit from manual runs
-p0 = [ 0.00365723 ,  0.0100486  ,  0.385703   ,  0.00226085 ,  1.29317e-06,  5.33581e-05] # -1796.36
+# p0 = [ 0.00365723 ,  0.0100486  ,  0.385703   ,  0.00226085 ,  1.29317e-06,  5.33581e-05] # -1796.36
+
+# p0 = [ 0.002396513,	0.010378533,	0.295010157,	0.001797582,	9.59E-07,	6.51E-05] # -1781.545499
+
+# best fit from opt logs... really weird numbers >:(
+# p0 = [ 0.021885814,	0.046397118,	0.682089788,	0.017228833,	9.696112236,	9.977892015]
+
+# p0 = [ 0.022131   ,  0.0377687  ,  0.478812   ,  0.0169264  ,  9.78311    ,  19.8904]
+# p0 = [ 0.0191467  ,  0.01       ,  0.0638444  ,  0.00983257 ,  37.1688    ,  66.0204]
+# p0 = [ 0.00131067 ,  0.000101352,  0.000898061,  0.000221085,  3756.02    ,  4290.99    ]
+# p0 = [ 0.000468924,  4.54758e-05,  0.000377352,  9.98896e-05,  9144.36    ,  9999.13    ]
+p1 = [ 4.53703467e-05,   4.71541615e-06,   2.95542838e-05,   1.01754795e-05, 8.90730854e+04,   9.96531052e+04]
+# p0 = [ 0.002 ,  0.1,  0.1,  0.000221085,  20    ,  25]
+
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+
+# # Make the extrapolating version of our demographic model function.
+# func_ex = dadi.Numerics.make_extrap_log_func(func)
+#
+# # Calculate the best-fit model AFS.
+# model = func_ex(p0, ns, pts_l)
+#
+# # Likelihood of the data given the model AFS.
+# ll_model = dadi.Inference.ll_multinom(model, fs)
+#
+# # The optimal value of theta given the model.
+# theta = dadi.Inference.optimal_sfs_scaling(model, fs)
+#
+# print ('P best: {0}'.format(p0))
+# print('Maximum log composite likelihood: {0}'.format(ll_model))
+# print('Optimal value of theta: {0}'.format(theta))
+#
+# quit()
+# ----------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 verbose = True
-
-# Make the extrapolating version of our demographic model function.
-func_ex = dadi.Numerics.make_extrap_log_func(func)
 
 # make a list of the optimal params
 popt = []
 
-for i in range(0, 3):
+for i in range(0, 1):
+
+    # Make the extrapolating version of our demographic model function.
+    func_ex = dadi.Numerics.make_extrap_log_func(func)
 
     # Perturb our parameters before optimization. This does so by taking each
     # parameter a up to a factor of two up or down.
-    p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound,
-                                  lower_bound=lower_bound)
+    # p0 = dadi.Misc.perturb_params(p0, fold=1, upper_bound=upper_bound,
+    #                               lower_bound=lower_bound)
 
     if verbose : print('Beginning optimization ************************************************')
 
-    # do the optimization...
-    p1 = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
-                                     lower_bound=lower_bound,
-                                     upper_bound=upper_bound,
-                                     verbose=20 if verbose else 0,
-                                     maxiter=100)
+    # # do the optimization...
+    # p1 = dadi.Inference.optimize_log(p0, fs, func_ex, pts_l,
+    #                                  lower_bound=lower_bound,
+    #                                  upper_bound=upper_bound,
+    #                                  verbose=20 if verbose else 0,
+    #                                  maxiter=100)
 
     if verbose: print('Finshed optimization **************************************************')
 
@@ -76,6 +125,7 @@ for i in range(0, 3):
     theta = dadi.Inference.optimal_sfs_scaling(model, fs)
 
     if verbose:
+        print ('P best: {0}'.format(p1))
         print('Maximum log composite likelihood: {0}'.format(ll_model))
         print('Optimal value of theta: {0}'.format(theta))
 
@@ -87,6 +137,12 @@ for i in range(0, 3):
 
     # run the optimisation again, starting from the best fit we've seen so far
     p0 = popt[0][2:]
+
+    # plot the figure
+    fig = plt.figure(1)
+    dadi.Plotting.plot_2d_comp_multinom(model, fs, fig_num=1)
+    fig.savefig('test.pdf')
+    plt.close(fig)
 
 # display the optimal params
 print popt
