@@ -420,4 +420,7 @@ class PrioritisedTask(luigi.Task):
         if self.scenario == "best-fit":
             p += 10
 
+        if self.n < 20:
+            p += 20
+
         return p
