@@ -8,6 +8,8 @@ import luigi, dadi, numpy, pylab, random
 import pickle
 import csv
 
+import demographic_models
+
 # import the custom pipelines
 from pipeline_gatk import *
 from pipeline_utils import *
@@ -108,7 +110,10 @@ class DadiModelOptimizeParams(PrioritisedTask):
         ns = fs.sample_sizes
 
         # get the demographic model to test
-        func = getattr(dadi.Demographics2D, self.model)
+        if self.model == 'prior_onegrow_mig':
+            func = getattr(demographic_models, self.model)
+        else:
+            func = getattr(dadi.Demographics2D, self.model)
 
         # Make the extrapolating version of our demographic model function.
         func_ex = dadi.Numerics.make_extrap_log_func(func)
@@ -280,6 +285,26 @@ class CustomDadiPipeline(luigi.WrapperTask):
     """
 
     def requires(self):
+
+        group = 'humans'
+        model = 'prior_onegrow_mig'
+
+        param_names = ['nu1F',  # nu1F: The ancestral population size after growth. (Its initial size is defined to be 1.)
+                       'nu2B',  # nu2B: The bottleneck size for pop2
+                       'nu2F',  # nu2F: The final size for pop2
+                       'm',     # m: The scaled migration rate
+                       'Tp',    # Tp: The scaled time between ancestral population growth and the split.
+                       'T']     # T: The time between the split and present
+
+        grid_size = [40, 50, 60]
+        upper_bound = [100, 100, 100, 10, 3, 3]
+        lower_bound = [1e-2, 1e-2, 1e-2, 0, 0, 0]
+
+        scenario = "best-fit"
+        fixed_params = None
+
+        yield DadiModelMaximumLikelihood(group, 'YRI', 'CEU', model, scenario, param_names, grid_size,
+                                         upper_bound, lower_bound, fixed_params)
 
         # run the whole analysis for multiple sets of pairwise comparisons
         for group, pop1, pop2 in [('all-pops',  'DOM',     'WLD-FRE'),
