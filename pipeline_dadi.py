@@ -279,9 +279,9 @@ class DadiModelMaximumLikelihood(luigi.Task):
         plt.close(fig)
 
 
-class CustomDadiPipeline(luigi.WrapperTask):
+class CustomHumanPipeline(luigi.WrapperTask):
     """
-    Run the dadi models
+    Run the Ryan G's human model
     """
 
     def requires(self):
@@ -305,6 +305,14 @@ class CustomDadiPipeline(luigi.WrapperTask):
 
         yield DadiModelMaximumLikelihood(group, 'YRI', 'CEU', model, scenario, param_names, grid_size,
                                          upper_bound, lower_bound, fixed_params)
+
+
+class CustomDadiPipeline(luigi.WrapperTask):
+    """
+    Run the dadi models
+    """
+
+    def requires(self):
 
         # run the whole analysis for multiple sets of pairwise comparisons
         for group, pop1, pop2 in [('all-pops',  'DOM',     'WLD-FRE'),
