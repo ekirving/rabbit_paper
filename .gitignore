@@ -5,8 +5,9 @@
 .RData
 .Rhistory
 
-# output logging from nohup command
+# output logging
 nohup.out
+*.log
 
 # temp files
 temp*

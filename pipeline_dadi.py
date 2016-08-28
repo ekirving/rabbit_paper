@@ -289,6 +289,10 @@ class CustomHumanPipeline(luigi.WrapperTask):
         group = 'humans'
         model = 'prior_onegrow_mig'
 
+        # Best-fit parameters: [1.881, 0.071, 1.845, 0.911, 0.355, 0.111]
+        # Maximum log composite likelihood: -1066.34607559
+        # Optimal value of theta: 2749.28579648
+
         param_names = ['nu1F',  # nu1F: The ancestral population size after growth. (Its initial size is defined to be 1.)
                        'nu2B',  # nu2B: The bottleneck size for pop2
                        'nu2F',  # nu2F: The final size for pop2
