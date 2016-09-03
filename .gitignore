@@ -8,6 +8,9 @@
 # output logging from nohup command
 nohup.out
 
+# ignore log files
+*.log
+
 # temp files
 temp*
 stub*
