@@ -7,13 +7,13 @@ import glob, pickle, csv, dadi
 group = 'all-pops'
 pop1 = 'DOM'
 pop2 = 'WLD-FRE'
-model = 'IM'
-scenario = 'folded-best-fit'
-
+# model = 'IM'
+# scenario = 'folded-best-fit'
+scenario = 'best-fit'
 # pop1 = 'WLD-IB2'
 # pop2 = 'WLD-IB1'
-# model = 'split_mig'
-# scenario = 'best-fit'
+model = 'split_mig'
+
 
 polarised = True
 
@@ -52,8 +52,8 @@ p_opt = p_best[0][2:]
 
 polar = '_folded' if not polarised else ''
 
-# load the frequency spectrum
 fs = dadi.Spectrum.from_file("fsdata/{}_{}_{}{}.fs".format(group, pop1, pop2, polar))
+# load the frequency spectrum
 ns = fs.sample_sizes
 
 # get the demographic model to test

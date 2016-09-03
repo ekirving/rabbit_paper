@@ -116,7 +116,7 @@ MIN_GENOTYPE_QUAL = 30
 MIN_COVERAGE_DEPTH = 8
 
 # the maximum number of ancestral populatons to run admiture for
-MAX_ANCESTRAL_K = 28
+MAX_ANCESTRAL_K = 10
 
 # no single worker should use more than 50% of the available cores
 MAX_CPU_CORES = int(multiprocessing.cpu_count() * 0.5)
