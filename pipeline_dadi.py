@@ -300,7 +300,7 @@ class CustomDadiFoldedUnboundPipeline(luigi.WrapperTask):
                            'T',    # Time in the past of split (in units of 2*Na generations)
                            'm']    # Migration rate between populations (2*Na*m)
 
-            upper_bound = [100, 100, 10, 20]
+            upper_bound = [100, 100, 3, 20]
             lower_bound = [1e-3, 1e-3, 0, 0]
 
             # -------------------
