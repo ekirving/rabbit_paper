@@ -15,3 +15,6 @@ nohup.out
 temp*
 stub*
 test*
+
+# ms output
+seedms

@@ -67,6 +67,6 @@ md = func_ex(p_opt, ns, grid_size)
 
 # plot the figure
 fig = plt.figure(1)
-dadi.Plotting.plot_2d_comp_multinom(md, fs, fig_num=1)
+dadi.Plotting.plot_2d_comp_multinom(md, fs, fig_num=1, vmin=1, resid_range=10)
 fig.savefig("fsdata/{}_{}_{}_{}_{}.pdf".format(group, pop1, pop2, model, scenario))
 plt.close(fig)
