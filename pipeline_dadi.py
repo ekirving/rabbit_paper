@@ -279,6 +279,58 @@ class DadiModelMaximumLikelihood(luigi.Task):
         plt.close(fig)
 
 
+class CustomDadiFoldedUnboundPipeline(luigi.WrapperTask):
+    """
+    Run the dadi models
+    """
+
+    def requires(self):
+
+        # run the whole analysis for multiple sets of pairwise comparisons
+        for group, pop1, pop2 in [('all-pops',  'DOM',     'WLD-FRE')]:
+
+            grid_size = [10, 50, 60]
+            polarised = False
+
+            # ----------------------------------------------------------------------------------------------------------
+
+            model = 'split_mig'
+            param_names = ['nu1',  # Size of population 1 after split.
+                           'nu2',  # Size of population 2 after split.
+                           'T',    # Time in the past of split (in units of 2*Na generations)
+                           'm']    # Migration rate between populations (2*Na*m)
+
+            upper_bound = [100, 100, 10, 20]
+            lower_bound = [1e-3, 1e-3, 0, 0]
+
+            # -------------------
+            scenario = "unbound-folded-best-fit"
+            fixed_params = None
+
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, polarised, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound, fixed_params)
+
+            # ----------------------------------------------------------------------------------------------------------
+
+            model = 'IM'
+            param_names = ['s',    # Size of pop 1 after split. (Pop 2 has size 1-s.)
+                           'nu1',  # Final size of pop 1.
+                           'nu2',  # Final size of pop 2.
+                           'T',    # Time in the past of split (in units of 2*Na generations)
+                           'm12',  # Migration from pop 2 to pop 1 (2*Na*m12)
+                           'm21']  # Migration from pop 1 to pop 2
+
+            upper_bound = [0.9999, 100, 100, 10, 20, 20]
+            lower_bound = [0.0001, 1e-3, 1e-3, 0, 0, 0]
+
+            # -------------------
+            scenario = "unbound-folded-best-fit"
+            fixed_params = None
+
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, polarised, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound, fixed_params)
+
+
 class CustomDadiFoldedPipeline(luigi.WrapperTask):
     """
     Run the dadi models
