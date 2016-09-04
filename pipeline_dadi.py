@@ -301,7 +301,7 @@ class CustomDadiFoldedUnboundPipeline(luigi.WrapperTask):
                            'm']    # Migration rate between populations (2*Na*m)
 
             upper_bound = [100, 100, 3, 20]
-            lower_bound = [1e-3, 1e-3, 0, 0]
+            lower_bound = [1e-2, 1e-2, 0, 0]
 
             # -------------------
             scenario = "unbound-folded-best-fit"
@@ -320,16 +320,15 @@ class CustomDadiFoldedUnboundPipeline(luigi.WrapperTask):
                            'm12',  # Migration from pop 2 to pop 1 (2*Na*m12)
                            'm21']  # Migration from pop 1 to pop 2
 
-            upper_bound = [0.9999, 100, 100, 10, 20, 20]
-            lower_bound = [0.0001, 1e-3, 1e-3, 0, 0, 0]
+            upper_bound = [0.9999, 100, 100, 3, 20, 20]
+            lower_bound = [0.0001, 1e-2, 1e-2, 0, 0, 0]
 
             # -------------------
-            scenario = "unbound-folded-best-fit"
+            scenario = "folded-best-fit"
             fixed_params = None
 
             yield DadiModelMaximumLikelihood(group, pop1, pop2, polarised, model, scenario, param_names, grid_size,
                                              upper_bound, lower_bound, fixed_params)
-
 
 class CustomDadiFoldedPipeline(luigi.WrapperTask):
     """
