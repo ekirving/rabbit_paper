@@ -274,7 +274,7 @@ class DadiModelMaximumLikelihood(luigi.Task):
 
         # plot the figure
         fig = plt.figure(1)
-        dadi.Plotting.plot_2d_comp_multinom(model, fs, fig_num=1)
+        dadi.Plotting.plot_2d_comp_multinom(model, fs, fig_num=1, vmin=1, resid_range=10)
         fig.savefig(self.output()[1].path)
         plt.close(fig)
 
@@ -289,9 +289,26 @@ class CustomDadiFoldedPipeline(luigi.WrapperTask):
         # run the whole analysis for multiple sets of pairwise comparisons
         for group, pop1, pop2 in [('all-pops',  'DOM',     'WLD-FRE')]:
 
-            # TODO experiment to see how changing this effects run time and model fitting
             grid_size = [10, 50, 60]
             polarised = False
+
+            # ----------------------------------------------------------------------------------------------------------
+
+            model = 'split_mig'
+            param_names = ['nu1',  # Size of population 1 after split.
+                           'nu2',  # Size of population 2 after split.
+                           'T',    # Time in the past of split (in units of 2*Na generations)
+                           'm']    # Migration rate between populations (2*Na*m)
+
+            upper_bound = [100, 100, 3, 10]
+            lower_bound = [1e-2, 1e-2, 0, 0]
+
+            # -------------------
+            scenario = "folded-best-fit"
+            fixed_params = None
+
+            yield DadiModelMaximumLikelihood(group, pop1, pop2, polarised, model, scenario, param_names, grid_size,
+                                             upper_bound, lower_bound, fixed_params)
 
             # ----------------------------------------------------------------------------------------------------------
 
