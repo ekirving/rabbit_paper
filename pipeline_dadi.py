@@ -260,7 +260,8 @@ class DadiModelMaximumLikelihood(luigi.Task):
         p_opt = p_best[0][2:]
 
         # load the frequency spectrum
-        fs = dadi.Spectrum.from_file("fsdata/{0}_{1}_{2}.fs".format(self.group, self.pop1, self.pop2))
+        polar = '_folded' if not self.polarised else ''
+        fs = dadi.Spectrum.from_file("fsdata/{0}_{1}_{2}{3}.fs".format(self.group, self.pop1, self.pop2, polar))
         ns = fs.sample_sizes
 
         # get the demographic model to test
