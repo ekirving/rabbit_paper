@@ -18,13 +18,13 @@ col1 <- '#fdbf6f'
 # fetch the French regions
 data(franceMapEnv)
 
-# draw the map
-map("world", xlim=c(-11,19.5),ylim=c(38,55))
-
-# color the native range
+# get the regions of France
 regs <- map("france", namesonly=TRUE, plot=FALSE)
-map('france', regions=regs[c(74,79,80,86:88,91:94, 96:110,113)], fill=TRUE, col=col1, border=NA, add=TRUE)
-map("world", region=c('Portugal', "Spain(?!:.+)"), fill=TRUE, col=col1, add=TRUE)
+
+# draw the map
+map('france', xlim=c(-11,20),ylim=c(38,55), regions=regs[c(74,79,80,86:88,91:94, 96:110,113)], fill=TRUE, col=col1, border=col1)
+map("world", region=c('Portugal', "Spain(?!:.+)"), fill=TRUE, col=col1, border=col1, add=TRUE)
+map("world", xlim=c(-11,19.5),ylim=c(38,55), boundary=T, interior=T, add=TRUE)
 
 # add the sample locations
 points(pts$longitude, pts$latitude, pch=19, col=pts$color, cex=2)  #plot my sample sites
