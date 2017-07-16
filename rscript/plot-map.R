@@ -10,8 +10,6 @@ pts$color <- sapply(pts$color, as.character)
 legend <- unique(pts[c('date','color')])
 legend <- legend[with(legend, order(date)), ]
 
-par(xpd=F)
-
 # native range color
 col1 <- '#fdbf6f'
 
@@ -21,17 +19,20 @@ data(franceMapEnv)
 # get the regions of France
 regs <- map("france", namesonly=TRUE, plot=FALSE)
 
+par(xpd=F)
+
 # draw the map
 map('france', xlim=c(-11,19.5),ylim=c(36,60), regions=regs[c(74,79,80,86:88,91:94, 96:110,113)], fill=TRUE, col=col1, border=col1)
 map("world", region=c('Portugal', "Spain(?!:.+)"), fill=TRUE, col=col1, border=col1, add=TRUE)
 map("worldHires", xlim=c(-11,19.5),ylim=c(36,60), boundary=T, interior=T, add=TRUE)
+box()
 
 # add the sample locations
 points(pts$longitude, pts$latitude, pch=19, col=pts$color, cex=2)  #plot my sample sites
 
 par(xpd=T)
 # add the legend
-legend('topright', inset=c(-0.3,-0.05), legend=legend$date, col=legend$color, cex=1, pch=19, title="Dates")
+legend('topright', inset=c(-0.5,0), legend=legend$date, col=legend$color, cex=1, pch=19, title="Dates")
 
 # -------------
 # nams1 <- map("france", namesonly=TRUE, plot=FALSE)
