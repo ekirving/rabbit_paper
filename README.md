@@ -2,6 +2,8 @@
 This repository contains Python and R code for processing data, running analyses and plotting figures from 
 the paper [Rabbits and the Specious Origins of Domestication](https://doi.org/10.1016/j.tree.2017.12.009)
 
+![∂a∂i model](./dadi-model.png?raw=true)
+
 If you reuse any of this code then please cite the paper:
 > Irving-Pease, E.K., Frantz, L.A.F., Sykes, N., Callou, C., Larson, G., 2018. 
 > Rabbits and the Specious Origins of Domestication. *Trends in Ecology & Evolution* 33, 149–152.
