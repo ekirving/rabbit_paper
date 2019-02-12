@@ -1,0 +1,4 @@
+dadi==1.7.0
+luigi==2.7.8
+matplotlib==2.0.2
+numpy==1.15.0
